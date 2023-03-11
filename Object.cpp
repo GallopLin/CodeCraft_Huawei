@@ -75,6 +75,7 @@ void Map::output() {
 				cout << ins.instruct << " " << ins.robotId << " " << ins.param << endl;
 			else cout << ins.instruct << " " << ins.robotId << endl;
 		}
+		robots[i].instructions.clear();
 	}
 	cout << "OK" << endl;
 }
