@@ -7,6 +7,7 @@
 #include "Object.h"
 
 using namespace std;
+#pragma warning (disable:4996)
 
 #define PI acos(-1)
 #define INIT_CAPITAL 200000  //初始资金
@@ -23,11 +24,9 @@ using namespace std;
 #define QUANTITY2 DENSITY * PI * RR2 * RR2  //机器人质量（持物品）
 
 int main() {
-	//cout << QUANTITY1;
-	//system("pause");
 	Map map;
 	map.init();
-	while (cin) {
+	while (1) {
 		map.frameInput();
 		map.strategy();
 		map.output();

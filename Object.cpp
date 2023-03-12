@@ -60,15 +60,19 @@ void Map::init() {
 			distance[i][j] = distance[j][i] = sqrt(powf(workbenches[i].x - workbenches[j].x, 2) + powf(workbenches[i].y - workbenches[j].y, 2));
 		}
 	}
+	string ok;
+	cin >> ok;
 	cout << "OK" << endl;
 }
 
 void Map::frameInput() {
+	if (!cin)exit(0);
 	//io¼ÓËÙ
 	ios::sync_with_stdio(false);
 	cin.tie(0);
 	cout.tie(0);
 	cin >> frameNumber >> money;
+	//cin >> money;
 	cin >> workbenchNum;
 	for (int i = 0; i < workbenchNum; ++i) {
 		cin >> workbenches[i].type >> workbenches[i].x >> workbenches[i].y >> workbenches[i].restTime
@@ -97,7 +101,7 @@ void Map::output() {
 
 void Map::strategy() {
 	for (int i = 0; i < MAXROBOTS; ++i) {
-		robots->setInstruct(Instruction::FORWARD, i, 2);
+		robots->setInstruct(Instruction::FORWARD, i, 0);
 		robots->setInstruct(Instruction::ROTATE, i, 2);
 	}
 }
