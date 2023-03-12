@@ -82,6 +82,7 @@ void Map::output() {
 			if (ins.instruct == Instruction::FORWARD || ins.instruct == Instruction::ROTATE)cout << " " << ins.param;
 			cout << endl;
 		}
+		robots[i].instructions.clear();
 	}
 	cout << "OK" << endl;
 }

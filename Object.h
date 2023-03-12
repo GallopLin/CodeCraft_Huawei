@@ -25,7 +25,7 @@ public:
 };
 
 typedef struct Instruction
-{ 
+{
 	static const string FORWARD;
 	static const string ROTATE;
 	static const string BUY;
@@ -37,7 +37,7 @@ typedef struct Instruction
 }Instruction;
 
 class Robot {
-public: 
+public:
 	int workbenchId;//所处工作台 ID
 	int carryType;//携带物品类型
 	float timeValue;//时间价值系数
