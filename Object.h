@@ -49,6 +49,7 @@ public:
 	vector<Instruction> instructions;
 
 	void setPos(int i, int j);
+	void setInstruct(string ins, int id, float par);
 
 };
 
@@ -64,5 +65,6 @@ public:
 	void init();
 	void frameInput();
 	void output();
+	void strategy();//²âÊÔº¯Êı£¬Ï¹·ÅÖ¸Áî
 };
 

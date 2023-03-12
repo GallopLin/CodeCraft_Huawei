@@ -20,6 +20,14 @@ void Robot::setPos(int i, int j) {
 	this->y = 50 - i * 0.5 - 0.25;
 }
 
+void Robot::setInstruct(string ins, int id, float par) {
+	Instruction temp;
+	temp.instruct = ins;
+	temp.robotId = id;
+	temp.param = par;
+	instructions.push_back(temp);
+}
+
 void Workbench::setPos(int i, int j) {
 	this->x = j * 0.5 + 0.25;
 	this->y = 50 - i * 0.5 - 0.25;
@@ -85,4 +93,11 @@ void Map::output() {
 		robots[i].instructions.clear();
 	}
 	cout << "OK" << endl;
+}
+
+void Map::strategy() {
+	for (int i = 0; i < MAXROBOTS; ++i) {
+		robots->setInstruct(Instruction::FORWARD, i, 2);
+		robots->setInstruct(Instruction::ROTATE, i, 2);
+	}
 }

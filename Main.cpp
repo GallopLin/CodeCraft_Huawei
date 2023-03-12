@@ -23,8 +23,15 @@ using namespace std;
 #define QUANTITY2 DENSITY * PI * RR2 * RR2  //机器人质量（持物品）
 
 int main() {
-	cout << QUANTITY1;
-	system("pause");
+	//cout << QUANTITY1;
+	//system("pause");
+	Map map;
+	map.init();
+	while (cin) {
+		map.frameInput();
+		map.strategy();
+		map.output();
+	}
 	return 0;
 }
 
