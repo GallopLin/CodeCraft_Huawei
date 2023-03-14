@@ -105,7 +105,8 @@ void Map::output() {
 
 void Map::strategy() {
 	for (int i = 0; i < MAXROBOTS; ++i) {
-		if (robots[i].workbenchId != ALONE || robots[i].v <= 1e8)robots[i].target_id = rand() % workbenchNum;
+		//if (robots[i].workbenchId != ALONE || robots[i].v <= 1e-8)robots[i].target_id = rand() % workbenchNum;
+		robots[i].target_id = 1;
 		robots->setInstruct(Instruction::FORWARD, i, get_line_speed(robots[i], workbenches[robots[i].target_id]));
 		robots->setInstruct(Instruction::ROTATE, i, get_angular_velocity(robots[i], workbenches[robots[i].target_id]));
 	}
@@ -130,11 +131,11 @@ float get_angular_velocity(Robot& a, Workbench& b) {
 	//当前速度开始减速到0，会转多少
 	float low = a.w * a.w / (2 * a_);
 	//现在减速恰好
-	if (S - low <= 1e8) {
+	if (S - low <= 1e-8) {
 		return 0;
 	}
 	//否则继续加速或者匀速，直接设最大旋转速度
-	else return S * MAXSPIN / fabs(S);
+	else return S > 0 ? MAXSPIN : -MAXSPIN;
 }
 
 float get_line_speed(Robot& a, Workbench& b) {
@@ -142,6 +143,6 @@ float get_line_speed(Robot& a, Workbench& b) {
 	float v = sqrtf(a.vx * a.vx + a.vy * a.vy);
 	float a_ = MAXTRACTION / a.quantity;
 	float low = v * v / (2 * a_);
-	if (S - low <= 0.4 - 1e8)return 0;
+	if (S - low <= 0.4 - 1e-8)return 0;
 	else return MAXFORWARD;
 }
