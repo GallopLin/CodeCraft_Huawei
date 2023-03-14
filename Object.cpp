@@ -81,6 +81,10 @@ void Map::frameInput() {
 	for (int i = 0; i < MAXROBOTS; ++i) {
 		cin >> robots[i].workbenchId >> robots[i].carryType >> robots[i].timeValue >> robots[i].collisionValue
 			>> robots[i].w >> robots[i].vx >> robots[i].vy >> robots[i].toward >> robots[i].x >> robots[i].y;
+		//设定半径与质量
+		robots[i].R == (robots[i].carryType == EMPTY) ? RR1 : RR2;
+		robots[i].quantity == (robots[i].carryType == EMPTY) ? QUANTITY1 : QUANTITY2;
+		robots[i].v = sqrtf(robots[i].vx * robots[i].vx + robots[i].vy * robots[i].vy);
 	}
 	string ok;
 	cin >> ok;
@@ -101,7 +105,43 @@ void Map::output() {
 
 void Map::strategy() {
 	for (int i = 0; i < MAXROBOTS; ++i) {
-		robots->setInstruct(Instruction::FORWARD, i, 0);
-		robots->setInstruct(Instruction::ROTATE, i, 2);
+		if (robots[i].workbenchId != ALONE || robots[i].v <= 1e8)robots[i].target_id = rand() % workbenchNum;
+		robots->setInstruct(Instruction::FORWARD, i, get_line_speed(robots[i], workbenches[robots[i].target_id]));
+		robots->setInstruct(Instruction::ROTATE, i, get_angular_velocity(robots[i], workbenches[robots[i].target_id]));
 	}
+}
+
+float dot(Robot& a, Workbench& b) {
+	return cos(a.toward) * b.x + sin(a.toward) * b.y;
+}
+
+float cross(Robot& a, Workbench& b) {
+	return cos(a.toward) * b.y - sin(a.toward) * b.x;
+}
+
+float radian(Robot& a, Workbench& b) {
+	float res = acos(dot(a, b) / sqrtf(b.x * b.x + b.y * b.y));
+	return cross(a, b) > 0 ? res : -res;
+}
+
+float get_angular_velocity(Robot& a, Workbench& b) {
+	float a_ = MAXTORQUE / (a.quantity * a.quantity * a.R);
+	float S = radian(a, b);
+	//当前速度开始减速到0，会转多少
+	float low = a.w * a.w / (2 * a_);
+	//现在减速恰好
+	if (S - low <= 1e8) {
+		return 0;
+	}
+	//否则继续加速或者匀速，直接设最大旋转速度
+	else return S * MAXSPIN / fabs(S);
+}
+
+float get_line_speed(Robot& a, Workbench& b) {
+	float S = sqrtf((b.x - a.x) * (b.x - a.x) + (b.y - a.y) * (b.y - a.y));
+	float v = sqrtf(a.vx * a.vx + a.vy * a.vy);
+	float a_ = MAXTRACTION / a.quantity;
+	float low = v * v / (2 * a_);
+	if (S - low <= 0.4 - 1e8)return 0;
+	else return MAXFORWARD;
 }
