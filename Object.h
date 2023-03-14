@@ -54,6 +54,7 @@ typedef struct Instruction
 
 class Robot {
 public:
+	bool ready;
 	int target_id;
 	int workbenchId;//所处工作台 ID
 	int carryType;//携带物品类型

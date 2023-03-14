@@ -3,11 +3,13 @@
 #include <cstring>
 #include <algorithm>
 #include <cmath>
+#include <fstream>
 
 #include "Object.h"
 
 using namespace std;
 
+ofstream fout("C:\Users\ASUS\Desktop\新建文件夹\2023\WindowsRelease\log.txt");
 //给定指令集合
 const string Instruction::FORWARD = "forward";
 const string Instruction::ROTATE = "rotate";
@@ -33,7 +35,7 @@ void Workbench::setPos(int i, int j) {
 	this->y = 50 - i * 0.5 - 0.25;
 }
 
-void Map::init() {
+void Map::init() {  
 	//io加速
 	ios::sync_with_stdio(false);
 	cin.tie(0);
@@ -82,9 +84,9 @@ void Map::frameInput() {
 		cin >> robots[i].workbenchId >> robots[i].carryType >> robots[i].timeValue >> robots[i].collisionValue
 			>> robots[i].w >> robots[i].vx >> robots[i].vy >> robots[i].toward >> robots[i].x >> robots[i].y;
 		//设定半径与质量
-		robots[i].R == (robots[i].carryType == EMPTY) ? RR1 : RR2;
-		robots[i].quantity == (robots[i].carryType == EMPTY) ? QUANTITY1 : QUANTITY2;
-		robots[i].v = sqrtf(robots[i].vx * robots[i].vx + robots[i].vy * robots[i].vy);
+		robots[i].R = (robots[i].carryType == EMPTY) ? RR1 : RR2;
+		robots[i].quantity = (robots[i].carryType == EMPTY) ? QUANTITY1 : QUANTITY2;
+		robots[i].v = sqrtf(robots[i].vx * robots[i].vx + robots[i].vy * robots[i].vy); 
 	}
 	string ok;
 	cin >> ok;
@@ -105,43 +107,49 @@ void Map::output() {
 
 void Map::strategy() {
 	for (int i = 0; i < MAXROBOTS; ++i) {
-		if (robots[i].workbenchId != ALONE || robots[i].v <= 1e8)robots[i].target_id = rand() % workbenchNum;
-		robots->setInstruct(Instruction::FORWARD, i, get_line_speed(robots[i], workbenches[robots[i].target_id]));
-		robots->setInstruct(Instruction::ROTATE, i, get_angular_velocity(robots[i], workbenches[robots[i].target_id]));
+		if (robots[i].v <= 1e-8) {
+			robots[i].target_id = rand() % workbenchNum; 
+		}
+		float next = get_angular_velocity(robots[i], workbenches[robots[i].target_id]);
+		robots->setInstruct(Instruction::ROTATE, i, next);
+		if (next == 0) { 
+			robots->setInstruct(Instruction::FORWARD, i, get_line_speed(robots[i], workbenches[robots[i].target_id]));
+		}
 	}
 }
 
 float dot(Robot& a, Workbench& b) {
-	return cos(a.toward) * b.x + sin(a.toward) * b.y;
+	return cos(a.toward) * (b.x - a.x) + sin(a.toward) * (b.y - a.y);
 }
 
 float cross(Robot& a, Workbench& b) {
-	return cos(a.toward) * b.y - sin(a.toward) * b.x;
+	return cos(a.toward) * (b.y - a.y) - sin(a.toward) * (b.x - a.x);
 }
 
 float radian(Robot& a, Workbench& b) {
-	float res = acos(dot(a, b) / sqrtf(b.x * b.x + b.y * b.y));
+	float res = acos(dot(a, b) / sqrtf((b.x - a.x) * (b.x - a.x) + (b.y - a.y) * (b.y - a.y)));
 	return cross(a, b) > 0 ? res : -res;
 }
 
 float get_angular_velocity(Robot& a, Workbench& b) {
-	float a_ = MAXTORQUE / (a.quantity * a.quantity * a.R);
+	float a_ = MAXTORQUE / (a.quantity * a.R * a.R);
 	float S = radian(a, b);
 	//当前速度开始减速到0，会转多少
-	float low = a.w * a.w / (2 * a_);
+	float low = (a.w * a.w) / (2 * a_); 
 	//现在减速恰好
-	if (S - low <= 1e8) {
+	if (fabs(S) - low <= 1e-8) {
 		return 0;
 	}
 	//否则继续加速或者匀速，直接设最大旋转速度
-	else return S * MAXSPIN / fabs(S);
+	else return S > 0 ? MAXSPIN : -MAXSPIN;
 }
 
 float get_line_speed(Robot& a, Workbench& b) {
 	float S = sqrtf((b.x - a.x) * (b.x - a.x) + (b.y - a.y) * (b.y - a.y));
 	float v = sqrtf(a.vx * a.vx + a.vy * a.vy);
 	float a_ = MAXTRACTION / a.quantity;
-	float low = v * v / (2 * a_);
-	if (S - low <= 0.4 - 1e8)return 0;
+	float low = (v * v) / (2 * a_);
+	if (S - low <= 0.4 - 1e-8)return 0;
 	else return MAXFORWARD;
 }
+ 
