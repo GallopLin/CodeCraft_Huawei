@@ -56,6 +56,7 @@ class Robot {
 public:
 	bool ready;
 	int target_id;
+	int next_target_id;
 	int workbenchId;//所处工作台 ID
 	int carryType;//携带物品类型
 	float timeValue;//时间价值系数
@@ -111,4 +112,8 @@ float radian(Robot& a, Workbench& b);
 /*
 	获取线速度
 */
-float get_line_speed(Robot& a, Workbench& b);
+float get_line_speed(Robot& a, Workbench& b, Workbench& c);
+/*
+	Q: 横冲直撞
+*/
+bool speed_up(Robot& a, Workbench& b, Workbench& c);

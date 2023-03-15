@@ -36,6 +36,7 @@ void Workbench::setPos(int i, int j) {
 }
 
 void Map::init() {  
+	srand((unsigned int)time(NULL));
 	//io¼ÓËÙ
 	ios::sync_with_stdio(false);
 	cin.tie(0);
@@ -47,6 +48,8 @@ void Map::init() {
 			cin >> map[i][j];
 			if (map[i][j] == 'A') {
 				robots[rNum].setPos(i, j);
+				robots[rNum].target_id = -1;
+				robots[rNum].next_target_id = rand() % workbenchNum;
 				++rNum;
 			}
 			else if (map[i][j] >= '1' && map[i][j] <= '9') {
@@ -87,6 +90,7 @@ void Map::frameInput() {
 		robots[i].R = (robots[i].carryType == EMPTY) ? RR1 : RR2;
 		robots[i].quantity = (robots[i].carryType == EMPTY) ? QUANTITY1 : QUANTITY2;
 		robots[i].v = sqrtf(robots[i].vx * robots[i].vx + robots[i].vy * robots[i].vy); 
+		if (robots[i].workbenchId != ALONE && robots[i].target_id != -1)robots[i].target_id = -1;
 	}
 	string ok;
 	cin >> ok;
@@ -107,14 +111,14 @@ void Map::output() {
 
 void Map::strategy() {
 	for (int i = 0; i < MAXROBOTS; ++i) {
-		if (robots[i].v <= 1e-8) {
-			robots[i].target_id = rand() % workbenchNum; 
+		if (robots[i].target_id == -1) {
+			robots[i].target_id = robots[i].next_target_id;
+			robots[i].next_target_id = rand() % workbenchNum; 
 		}
 		float next = get_angular_velocity(robots[i], workbenches[robots[i].target_id]);
-		robots->setInstruct(Instruction::ROTATE, i, next);
-		if (next == 0) { 
-			robots->setInstruct(Instruction::FORWARD, i, get_line_speed(robots[i], workbenches[robots[i].target_id]));
-		}
+		robots->setInstruct(Instruction::ROTATE, i, next); 
+		robots->setInstruct(Instruction::FORWARD, i, 
+			get_line_speed(robots[i], workbenches[robots[i].target_id], workbenches[robots[i].next_target_id]));
 	}
 }
 
@@ -144,12 +148,27 @@ float get_angular_velocity(Robot& a, Workbench& b) {
 	else return S > 0 ? MAXSPIN : -MAXSPIN;
 }
 
-float get_line_speed(Robot& a, Workbench& b) {
+float get_line_speed(Robot& a, Workbench& b, Workbench& c) {
+	bool flag = speed_up(a, b, c); 
+	float range = radian(a, b);
+	fout << flag;
+	if (flag)return MAXFORWARD; 
 	float S = sqrtf((b.x - a.x) * (b.x - a.x) + (b.y - a.y) * (b.y - a.y));
 	float v = sqrtf(a.vx * a.vx + a.vy * a.vy);
 	float a_ = MAXTRACTION / a.quantity;
 	float low = (v * v) / (2 * a_);
 	if (S - low <= 0.4 - 1e-8)return 0;
-	else return MAXFORWARD;
+	else {
+		return fabs(range) <= (PI / 16) ? MAXFORWARD : 2.0;
+	}
 }
  
+bool speed_up(Robot& a, Workbench& b, Workbench& c) {
+	float r = radian(a, b);
+	if (fabs(r) > PI / 16)return false;
+	Robot t = a;
+	t.x = b.x;
+	t.y = b.y;
+	float range = radian(t, c); 
+	return fabs(range) <= (PI * 3 / 8);
+}
