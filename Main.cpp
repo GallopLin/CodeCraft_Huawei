@@ -3,6 +3,7 @@
 #include <cstring>
 #include <cstdio>
 #include <algorithm>
+#include <set>
 
 #include "Object.h"
 

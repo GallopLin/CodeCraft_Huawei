@@ -4,18 +4,20 @@
 #include <algorithm>
 #include <cmath>
 #include <fstream>
+#include <set>
 
 #include "Object.h"
 
 using namespace std;
 
-ofstream fout("C:\Users\ASUS\Desktop\ĞÂ½¨ÎÄ¼ş¼Ğ\2023\WindowsRelease\log.txt");
-//¸ø¶¨Ö¸Áî¼¯ºÏ
+//ofstream fout("C:\Users\ASUS\Desktop\æ–°å»ºæ–‡ä»¶å¤¹\2023\WindowsRelease\log.txt");
+//ç»™å®šæŒ‡ä»¤é›†åˆ
 const string Instruction::FORWARD = "forward";
 const string Instruction::ROTATE = "rotate";
 const string Instruction::BUY = "buy";
 const string Instruction::SELL = "sell";
 const string Instruction::DESTORY = "destory";
+const int product[10] = { 0,0,0,0,6,10,12,112,128,254 };
 
 void Robot::setPos(int i, int j) {
 	this->x = j * 0.5 + 0.25;
@@ -37,19 +39,18 @@ void Workbench::setPos(int i, int j) {
 
 void Map::init() {  
 	srand((unsigned int)time(NULL));
-	//io¼ÓËÙ
+	//ioåŠ é€Ÿ
 	ios::sync_with_stdio(false);
 	cin.tie(0);
 	cout.tie(0);
-	int rNum = 0;//»úÆ÷ÈËÏÂ±ê
-	int wNum = 0;//¹¤×÷Ì¨ÏÂ±ê
+	int rNum = 0;//æœºå™¨äººä¸‹æ ‡
+	int wNum = 0;//å·¥ä½œå°ä¸‹æ ‡
 	for (int i = 0; i < LENGTH; ++i) {
 		for (int j = 0; j < LENGTH; ++j) {
 			cin >> map[i][j];
 			if (map[i][j] == 'A') {
 				robots[rNum].setPos(i, j);
 				robots[rNum].target_id = -1;
-				robots[rNum].next_target_id = -1;
 				++rNum;
 			}
 			else if (map[i][j] >= '1' && map[i][j] <= '9') {
@@ -59,7 +60,7 @@ void Map::init() {
 			}
 		}
 	}
-	//¼ÆËã¸÷¸ö¹¤×÷Ì¨Ö®¼äµÄ¾àÀë
+	//è®¡ç®—å„ä¸ªå·¥ä½œå°ä¹‹é—´çš„è·ç¦»
 	for (int i = 0; i < wNum; ++i) {
 		for (int j = i; j < wNum; ++j) {
 			distance[i][j] = distance[j][i] = sqrt(powf(workbenches[i].x - workbenches[j].x, 2) + powf(workbenches[i].y - workbenches[j].y, 2));
@@ -72,26 +73,48 @@ void Map::init() {
 
 void Map::frameInput() {
 	if (!cin)exit(0);
-	//io¼ÓËÙ
+	//ioåŠ é€Ÿ
 	ios::sync_with_stdio(false);
 	cin.tie(0);
 	cout.tie(0);
 	cin >> frameNumber >> money;
-	//cin >> money;
 	cin >> workbenchNum;
+	require.clear();
+	resource.clear();
 	for (int i = 0; i < workbenchNum; ++i) {
 		cin >> workbenches[i].type >> workbenches[i].x >> workbenches[i].y >> workbenches[i].restTime
 			>> workbenches[i].materialState >> workbenches[i].productState;
+		if (workbenches[i].productState) {
+			PAIR temp(i, workbenches[i].type);
+			resource.insert(temp);
+		}
+		if (workbenches[i].type == 1 || workbenches[i].type == 2 || workbenches[i].type == 3)continue;
+		int k = product[workbenches[i].type] ^ workbenches[i].materialState;
+		for (int j = 1; j <= 7; ++j) {
+			if (k >> j & 1) {
+				PAIR temp(i, j);
+				require.insert(temp);
+			}
+		}
 	}
 	for (int i = 0; i < MAXROBOTS; ++i) {
 		cin >> robots[i].workbenchId >> robots[i].carryType >> robots[i].timeValue >> robots[i].collisionValue
 			>> robots[i].w >> robots[i].vx >> robots[i].vy >> robots[i].toward >> robots[i].x >> robots[i].y;
-		//Éè¶¨°ë¾¶ÓëÖÊÁ¿
+		//è®¾å®šåŠå¾„ä¸è´¨é‡
 		robots[i].R = (robots[i].carryType == EMPTY) ? RR1 : RR2;
 		robots[i].quantity = (robots[i].carryType == EMPTY) ? QUANTITY1 : QUANTITY2;
 		robots[i].v = sqrtf(robots[i].vx * robots[i].vx + robots[i].vy * robots[i].vy); 
-		//½ö²âÊÔ
-		if (robots[i].workbenchId == robots[i].target_id)robots[i].target_id = -1;
+		if (robots[i].target_id == -1) {//åˆå§‹åŒ–ç›®æ ‡ï¼Œå¤šåŠ äº†ä¸€ä¸ªåˆ¤æ–­è¯­å¥ï¼Œå¯èƒ½ä¼šå˜æ…¢
+			robotChooseTarget(i);
+			robotChooseNextTarget(i);
+		}
+		if (robots[i].workbenchId != ALONE && robots[i].workbenchId == robots[i].target_id) {
+			PAIR temp(robots[i].workbenchId, workbenches[robots[i].workbenchId].type);
+			block.erase(temp);
+			robots[i].target_id = -1;
+			if (robots[i].carryType == 0)robots[i].setInstruct(Instruction::BUY, i, 0);
+			else robots[i].setInstruct(Instruction::SELL, i, 0);
+		}
 	}
 	string ok;
 	cin >> ok;
@@ -112,16 +135,67 @@ void Map::output() {
 
 void Map::strategy() {
 	for (int i = 0; i < MAXROBOTS; ++i) {
-		//½öÓÃÓÚ²âÊÔ
+		//ä»…ç”¨äºæµ‹è¯•
 		if (robots[i].target_id == -1) {
 			if (robots[i].next_target_id == -1)robots[i].next_target_id = rand() % workbenchNum;
 			robots[i].target_id = robots[i].next_target_id;
-			robots[i].next_target_id = rand() % workbenchNum; 
+			robotChooseNextTarget(i);
 		}
 		float next = get_angular_velocity(robots[i], workbenches[robots[i].target_id]);
-		robots->setInstruct(Instruction::ROTATE, i, next); 
-		robots->setInstruct(Instruction::FORWARD, i, 
+		robots[i].setInstruct(Instruction::ROTATE, i, next); 
+		robots[i].setInstruct(Instruction::FORWARD, i,
 			get_line_speed(robots[i], workbenches[robots[i].target_id], workbenches[robots[i].next_target_id]));
+		
+	}
+}
+
+void Map::robotChooseTarget(int id) {//å¯ä½¿ç”¨å…¶ä»–ç­–ç•¥
+	if (robots[id].carryType == 0) {
+		set<PAIR>::iterator it;
+		for (it = resource.begin(); it != resource.end(); ++it)  //ä½¿ç”¨è¿­ä»£å™¨è¿›è¡Œéå†   
+		{
+			if (!block.count(*it)) {
+				robots[id].target_id = (*it).first;
+				block.insert(*it);
+				break;
+			}
+		}
+	}
+	else {
+		set<PAIR>::iterator it;
+		for (it = require.begin(); it != require.end(); ++it)  //ä½¿ç”¨è¿­ä»£å™¨è¿›è¡Œéå†   
+		{
+			if (!block.count(*it) && (*it).second == robots[id].carryType) {
+				robots[id].target_id = (*it).first;
+				block.insert(*it);
+				break;
+			}
+		}
+	}
+}
+
+void Map::robotChooseNextTarget(int id) {
+	if (robots[id].carryType != 0) {//æœºå™¨äººæœ‰ä¸œè¥¿ï¼Œç›®æ ‡æ˜¯å–ï¼Œä¸‹ä¸€ä¸ªç›®æ ‡æ˜¯ä¹°
+		set<PAIR>::iterator it;
+		for (it = resource.begin(); it != resource.end(); ++it)  //ä½¿ç”¨è¿­ä»£å™¨è¿›è¡Œéå†   
+		{
+			if (!block.count(*it)) {
+				robots[id].next_target_id = (*it).first;
+				block.insert(*it);
+				break;
+			}
+		}
+	}
+	else {//æœºå™¨äººæ‰‹é‡Œæ²¡ä¸œè¥¿ï¼Œç›®æ ‡æ˜¯ä¹°ï¼Œä¸‹ä¸€ä¸ªç›®æ ‡æ˜¯å– 
+		set<PAIR>::iterator it;
+		for (it = require.begin(); it != require.end(); ++it)  //ä½¿ç”¨è¿­ä»£å™¨è¿›è¡Œéå†   
+		{
+			if (!block.count(*it) && (*it).second == robots[id].target_id) {
+				robots[id].next_target_id = (*it).first;
+				block.insert(*it);
+				break;
+			}
+		}
 	}
 }
 
@@ -141,13 +215,13 @@ float radian(Robot& a, Workbench& b) {
 float get_angular_velocity(Robot& a, Workbench& b) {
 	float a_ = MAXTORQUE / (a.quantity * a.R * a.R);
 	float S = radian(a, b);
-	//µ±Ç°ËÙ¶È¿ªÊ¼¼õËÙµ½0£¬»á×ª¶àÉÙ
+	//å½“å‰é€Ÿåº¦å¼€å§‹å‡é€Ÿåˆ°0ï¼Œä¼šè½¬å¤šå°‘
 	float low = (a.w * a.w) / (2 * a_); 
-	//ÏÖÔÚ¼õËÙÇ¡ºÃ
+	//ç°åœ¨å‡é€Ÿæ°å¥½
 	if (fabs(S) - low <= 1e-8) {
 		return 0;
 	}
-	//·ñÔò¼ÌĞø¼ÓËÙ»òÕßÔÈËÙ£¬Ö±½ÓÉè×î´óĞı×ªËÙ¶È
+	//å¦åˆ™ç»§ç»­åŠ é€Ÿæˆ–è€…åŒ€é€Ÿï¼Œç›´æ¥è®¾æœ€å¤§æ—‹è½¬é€Ÿåº¦
 	else return S > 0 ? MAXSPIN : -MAXSPIN;
 }
 

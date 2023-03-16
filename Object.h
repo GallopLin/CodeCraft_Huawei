@@ -5,6 +5,9 @@
 #include <string>
 #include <cstring>
 #include <cstdio>
+#include <set>
+
+
 
 #define PI acos(-1)
 #define INIT_CAPITAL 200000  //初始资金
@@ -27,6 +30,8 @@ using namespace std;
 #define LENGTH 100
 #define MAXWORKBENCH 50
 #define MAXROBOTS 4
+
+typedef pair<int, int> PAIR;
 
 class Workbench {
 public:
@@ -52,6 +57,11 @@ typedef struct Instruction
 	float param;//有些指令需要
 }Instruction;
 
+typedef struct Product {
+	int id;//工作台id
+	int type;//类型
+}Product;
+
 class Robot {
 public:
 	bool ready;
@@ -70,6 +80,7 @@ public:
 	float quantity; // 质量
 	vector<Instruction> instructions;
 
+
 	void setPos(int i, int j);
 	void setInstruct(string ins, int id, float par);
 
@@ -83,11 +94,16 @@ public:
 	int workbenchNum;
 	Workbench workbenches[MAXWORKBENCH];
 	float distance[MAXWORKBENCH][MAXWORKBENCH];
+	set<PAIR> resource;//资源
+	set<PAIR> require;//需求
+	set<PAIR> block;//阻塞
 
 	void init();
 	void frameInput();
 	void output();
 	void strategy();//测试函数，瞎放指令
+	void robotChooseTarget(int id);
+	void robotChooseNextTarget(int id);
 };
 
 
