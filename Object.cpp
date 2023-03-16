@@ -49,7 +49,7 @@ void Map::init() {
 			if (map[i][j] == 'A') {
 				robots[rNum].setPos(i, j);
 				robots[rNum].target_id = -1;
-				robots[rNum].next_target_id = rand() % workbenchNum;
+				robots[rNum].next_target_id = -1;
 				++rNum;
 			}
 			else if (map[i][j] >= '1' && map[i][j] <= '9') {
@@ -90,7 +90,8 @@ void Map::frameInput() {
 		robots[i].R = (robots[i].carryType == EMPTY) ? RR1 : RR2;
 		robots[i].quantity = (robots[i].carryType == EMPTY) ? QUANTITY1 : QUANTITY2;
 		robots[i].v = sqrtf(robots[i].vx * robots[i].vx + robots[i].vy * robots[i].vy); 
-		if (robots[i].workbenchId != ALONE && robots[i].target_id != -1)robots[i].target_id = -1;
+		//仅测试
+		if (robots[i].workbenchId == robots[i].target_id)robots[i].target_id = -1;
 	}
 	string ok;
 	cin >> ok;
@@ -111,7 +112,9 @@ void Map::output() {
 
 void Map::strategy() {
 	for (int i = 0; i < MAXROBOTS; ++i) {
+		//仅用于测试
 		if (robots[i].target_id == -1) {
+			if (robots[i].next_target_id == -1)robots[i].next_target_id = rand() % workbenchNum;
 			robots[i].target_id = robots[i].next_target_id;
 			robots[i].next_target_id = rand() % workbenchNum; 
 		}
@@ -151,7 +154,6 @@ float get_angular_velocity(Robot& a, Workbench& b) {
 float get_line_speed(Robot& a, Workbench& b, Workbench& c) {
 	bool flag = speed_up(a, b, c); 
 	float range = radian(a, b);
-	fout << flag;
 	if (flag)return MAXFORWARD; 
 	float S = sqrtf((b.x - a.x) * (b.x - a.x) + (b.y - a.y) * (b.y - a.y));
 	float v = sqrtf(a.vx * a.vx + a.vy * a.vy);
