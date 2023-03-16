@@ -10,8 +10,8 @@
 
 using namespace std;
 
-//ofstream fout("C:\Users\ASUS\Desktop\ĞÂ½¨ÎÄ¼ş¼Ğ\2023\WindowsRelease\log.txt");
-//¸ø¶¨Ö¸Áî¼¯ºÏ
+//ofstream fout("C:\Users\ASUS\Desktop\æ–°å»ºæ–‡ä»¶å¤¹\2023\WindowsRelease\log.txt");
+//ç»™å®šæŒ‡ä»¤é›†åˆ
 const string Instruction::FORWARD = "forward";
 const string Instruction::ROTATE = "rotate";
 const string Instruction::BUY = "buy";
@@ -39,19 +39,18 @@ void Workbench::setPos(int i, int j) {
 
 void Map::init() {  
 	srand((unsigned int)time(NULL));
-	//io¼ÓËÙ
+	//ioåŠ é€Ÿ
 	ios::sync_with_stdio(false);
 	cin.tie(0);
 	cout.tie(0);
-	int rNum = 0;//»úÆ÷ÈËÏÂ±ê
-	int wNum = 0;//¹¤×÷Ì¨ÏÂ±ê
+	int rNum = 0;//æœºå™¨äººä¸‹æ ‡
+	int wNum = 0;//å·¥ä½œå°ä¸‹æ ‡
 	for (int i = 0; i < LENGTH; ++i) {
 		for (int j = 0; j < LENGTH; ++j) {
 			cin >> map[i][j];
 			if (map[i][j] == 'A') {
 				robots[rNum].setPos(i, j);
 				robots[rNum].target_id = -1;
-				//robots[rNum].next_target_id = rand() % 10;
 				++rNum;
 			}
 			else if (map[i][j] >= '1' && map[i][j] <= '9') {
@@ -61,7 +60,7 @@ void Map::init() {
 			}
 		}
 	}
-	//¼ÆËã¸÷¸ö¹¤×÷Ì¨Ö®¼äµÄ¾àÀë
+	//è®¡ç®—å„ä¸ªå·¥ä½œå°ä¹‹é—´çš„è·ç¦»
 	for (int i = 0; i < wNum; ++i) {
 		for (int j = i; j < wNum; ++j) {
 			distance[i][j] = distance[j][i] = sqrt(powf(workbenches[i].x - workbenches[j].x, 2) + powf(workbenches[i].y - workbenches[j].y, 2));
@@ -74,7 +73,7 @@ void Map::init() {
 
 void Map::frameInput() {
 	if (!cin)exit(0);
-	//io¼ÓËÙ
+	//ioåŠ é€Ÿ
 	ios::sync_with_stdio(false);
 	cin.tie(0);
 	cout.tie(0);
@@ -101,11 +100,11 @@ void Map::frameInput() {
 	for (int i = 0; i < MAXROBOTS; ++i) {
 		cin >> robots[i].workbenchId >> robots[i].carryType >> robots[i].timeValue >> robots[i].collisionValue
 			>> robots[i].w >> robots[i].vx >> robots[i].vy >> robots[i].toward >> robots[i].x >> robots[i].y;
-		//Éè¶¨°ë¾¶ÓëÖÊÁ¿
+		//è®¾å®šåŠå¾„ä¸è´¨é‡
 		robots[i].R = (robots[i].carryType == EMPTY) ? RR1 : RR2;
 		robots[i].quantity = (robots[i].carryType == EMPTY) ? QUANTITY1 : QUANTITY2;
 		robots[i].v = sqrtf(robots[i].vx * robots[i].vx + robots[i].vy * robots[i].vy); 
-		if (robots[i].target_id == -1) {//³õÊ¼»¯Ä¿±ê£¬¶à¼ÓÁËÒ»¸öÅĞ¶ÏÓï¾ä£¬¿ÉÄÜ»á±äÂı
+		if (robots[i].target_id == -1) {//åˆå§‹åŒ–ç›®æ ‡ï¼Œå¤šåŠ äº†ä¸€ä¸ªåˆ¤æ–­è¯­å¥ï¼Œå¯èƒ½ä¼šå˜æ…¢
 			robotChooseTarget(i);
 			robotChooseNextTarget(i);
 		}
@@ -116,7 +115,6 @@ void Map::frameInput() {
 			if (robots[i].carryType == 0)robots[i].setInstruct(Instruction::BUY, i, 0);
 			else robots[i].setInstruct(Instruction::SELL, i, 0);
 		}
-			
 	}
 	string ok;
 	cin >> ok;
@@ -137,7 +135,9 @@ void Map::output() {
 
 void Map::strategy() {
 	for (int i = 0; i < MAXROBOTS; ++i) {
+		//ä»…ç”¨äºæµ‹è¯•
 		if (robots[i].target_id == -1) {
+			if (robots[i].next_target_id == -1)robots[i].next_target_id = rand() % workbenchNum;
 			robots[i].target_id = robots[i].next_target_id;
 			robotChooseNextTarget(i);
 		}
@@ -149,10 +149,10 @@ void Map::strategy() {
 	}
 }
 
-void Map::robotChooseTarget(int id) {//¿ÉÊ¹ÓÃÆäËû²ßÂÔ
+void Map::robotChooseTarget(int id) {//å¯ä½¿ç”¨å…¶ä»–ç­–ç•¥
 	if (robots[id].carryType == 0) {
 		set<PAIR>::iterator it;
-		for (it = resource.begin(); it != resource.end(); ++it)  //Ê¹ÓÃµü´úÆ÷½øĞĞ±éÀú   
+		for (it = resource.begin(); it != resource.end(); ++it)  //ä½¿ç”¨è¿­ä»£å™¨è¿›è¡Œéå†   
 		{
 			if (!block.count(*it)) {
 				robots[id].target_id = (*it).first;
@@ -163,7 +163,7 @@ void Map::robotChooseTarget(int id) {//¿ÉÊ¹ÓÃÆäËû²ßÂÔ
 	}
 	else {
 		set<PAIR>::iterator it;
-		for (it = require.begin(); it != require.end(); ++it)  //Ê¹ÓÃµü´úÆ÷½øĞĞ±éÀú   
+		for (it = require.begin(); it != require.end(); ++it)  //ä½¿ç”¨è¿­ä»£å™¨è¿›è¡Œéå†   
 		{
 			if (!block.count(*it) && (*it).second == robots[id].carryType) {
 				robots[id].target_id = (*it).first;
@@ -175,9 +175,9 @@ void Map::robotChooseTarget(int id) {//¿ÉÊ¹ÓÃÆäËû²ßÂÔ
 }
 
 void Map::robotChooseNextTarget(int id) {
-	if (robots[id].carryType != 0) {//»úÆ÷ÈËÓĞ¶«Î÷£¬Ä¿±êÊÇÂô£¬ÏÂÒ»¸öÄ¿±êÊÇÂò
+	if (robots[id].carryType != 0) {//æœºå™¨äººæœ‰ä¸œè¥¿ï¼Œç›®æ ‡æ˜¯å–ï¼Œä¸‹ä¸€ä¸ªç›®æ ‡æ˜¯ä¹°
 		set<PAIR>::iterator it;
-		for (it = resource.begin(); it != resource.end(); ++it)  //Ê¹ÓÃµü´úÆ÷½øĞĞ±éÀú   
+		for (it = resource.begin(); it != resource.end(); ++it)  //ä½¿ç”¨è¿­ä»£å™¨è¿›è¡Œéå†   
 		{
 			if (!block.count(*it)) {
 				robots[id].next_target_id = (*it).first;
@@ -186,9 +186,9 @@ void Map::robotChooseNextTarget(int id) {
 			}
 		}
 	}
-	else {//»úÆ÷ÈËÊÖÀïÃ»¶«Î÷£¬Ä¿±êÊÇÂò£¬ÏÂÒ»¸öÄ¿±êÊÇÂô 
+	else {//æœºå™¨äººæ‰‹é‡Œæ²¡ä¸œè¥¿ï¼Œç›®æ ‡æ˜¯ä¹°ï¼Œä¸‹ä¸€ä¸ªç›®æ ‡æ˜¯å– 
 		set<PAIR>::iterator it;
-		for (it = require.begin(); it != require.end(); ++it)  //Ê¹ÓÃµü´úÆ÷½øĞĞ±éÀú   
+		for (it = require.begin(); it != require.end(); ++it)  //ä½¿ç”¨è¿­ä»£å™¨è¿›è¡Œéå†   
 		{
 			if (!block.count(*it) && (*it).second == robots[id].target_id) {
 				robots[id].next_target_id = (*it).first;
@@ -215,20 +215,19 @@ float radian(Robot& a, Workbench& b) {
 float get_angular_velocity(Robot& a, Workbench& b) {
 	float a_ = MAXTORQUE / (a.quantity * a.R * a.R);
 	float S = radian(a, b);
-	//µ±Ç°ËÙ¶È¿ªÊ¼¼õËÙµ½0£¬»á×ª¶àÉÙ
+	//å½“å‰é€Ÿåº¦å¼€å§‹å‡é€Ÿåˆ°0ï¼Œä¼šè½¬å¤šå°‘
 	float low = (a.w * a.w) / (2 * a_); 
-	//ÏÖÔÚ¼õËÙÇ¡ºÃ
+	//ç°åœ¨å‡é€Ÿæ°å¥½
 	if (fabs(S) - low <= 1e-8) {
 		return 0;
 	}
-	//·ñÔò¼ÌĞø¼ÓËÙ»òÕßÔÈËÙ£¬Ö±½ÓÉè×î´óĞı×ªËÙ¶È
+	//å¦åˆ™ç»§ç»­åŠ é€Ÿæˆ–è€…åŒ€é€Ÿï¼Œç›´æ¥è®¾æœ€å¤§æ—‹è½¬é€Ÿåº¦
 	else return S > 0 ? MAXSPIN : -MAXSPIN;
 }
 
 float get_line_speed(Robot& a, Workbench& b, Workbench& c) {
 	bool flag = speed_up(a, b, c); 
 	float range = radian(a, b);
-	//fout << flag;
 	if (flag)return MAXFORWARD; 
 	float S = sqrtf((b.x - a.x) * (b.x - a.x) + (b.y - a.y) * (b.y - a.y));
 	float v = sqrtf(a.vx * a.vx + a.vy * a.vy);
