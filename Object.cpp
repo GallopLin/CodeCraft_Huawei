@@ -4,18 +4,20 @@
 #include <algorithm>
 #include <cmath>
 #include <fstream>
+#include <set>
 
 #include "Object.h"
 
 using namespace std;
 
-ofstream fout("C:\Users\ASUS\Desktop\新建文件夹\2023\WindowsRelease\log.txt");
+//ofstream fout("C:\Users\ASUS\Desktop\新建文件夹\2023\WindowsRelease\log.txt");
 //给定指令集合
 const string Instruction::FORWARD = "forward";
 const string Instruction::ROTATE = "rotate";
 const string Instruction::BUY = "buy";
 const string Instruction::SELL = "sell";
 const string Instruction::DESTORY = "destory";
+const int product[10] = { 0,0,0,0,6,10,12,112,128,254 };
 
 void Robot::setPos(int i, int j) {
 	this->x = j * 0.5 + 0.25;
@@ -49,7 +51,7 @@ void Map::init() {
 			if (map[i][j] == 'A') {
 				robots[rNum].setPos(i, j);
 				robots[rNum].target_id = -1;
-				robots[rNum].next_target_id = rand() % workbenchNum;
+				//robots[rNum].next_target_id = rand() % 10;
 				++rNum;
 			}
 			else if (map[i][j] >= '1' && map[i][j] <= '9') {
@@ -77,11 +79,24 @@ void Map::frameInput() {
 	cin.tie(0);
 	cout.tie(0);
 	cin >> frameNumber >> money;
-	//cin >> money;
 	cin >> workbenchNum;
+	require.clear();
+	resource.clear();
 	for (int i = 0; i < workbenchNum; ++i) {
 		cin >> workbenches[i].type >> workbenches[i].x >> workbenches[i].y >> workbenches[i].restTime
 			>> workbenches[i].materialState >> workbenches[i].productState;
+		if (workbenches[i].productState) {
+			PAIR temp(i, workbenches[i].type);
+			resource.insert(temp);
+		}
+		if (workbenches[i].type == 1 || workbenches[i].type == 2 || workbenches[i].type == 3)continue;
+		int k = product[workbenches[i].type] ^ workbenches[i].materialState;
+		for (int j = 1; j <= 7; ++j) {
+			if (k >> j & 1) {
+				PAIR temp(i, j);
+				require.insert(temp);
+			}
+		}
 	}
 	for (int i = 0; i < MAXROBOTS; ++i) {
 		cin >> robots[i].workbenchId >> robots[i].carryType >> robots[i].timeValue >> robots[i].collisionValue
@@ -90,7 +105,18 @@ void Map::frameInput() {
 		robots[i].R = (robots[i].carryType == EMPTY) ? RR1 : RR2;
 		robots[i].quantity = (robots[i].carryType == EMPTY) ? QUANTITY1 : QUANTITY2;
 		robots[i].v = sqrtf(robots[i].vx * robots[i].vx + robots[i].vy * robots[i].vy); 
-		if (robots[i].workbenchId != ALONE && robots[i].target_id != -1)robots[i].target_id = -1;
+		if (robots[i].target_id == -1) {//初始化目标，多加了一个判断语句，可能会变慢
+			robotChooseTarget(i);
+			robotChooseNextTarget(i);
+		}
+		if (robots[i].workbenchId != ALONE && robots[i].workbenchId == robots[i].target_id) {
+			PAIR temp(robots[i].workbenchId, workbenches[robots[i].workbenchId].type);
+			block.erase(temp);
+			robots[i].target_id = -1;
+			if (robots[i].carryType == 0)robots[i].setInstruct(Instruction::BUY, i, 0);
+			else robots[i].setInstruct(Instruction::SELL, i, 0);
+		}
+			
 	}
 	string ok;
 	cin >> ok;
@@ -113,12 +139,63 @@ void Map::strategy() {
 	for (int i = 0; i < MAXROBOTS; ++i) {
 		if (robots[i].target_id == -1) {
 			robots[i].target_id = robots[i].next_target_id;
-			robots[i].next_target_id = rand() % workbenchNum; 
+			robotChooseNextTarget(i);
 		}
 		float next = get_angular_velocity(robots[i], workbenches[robots[i].target_id]);
-		robots->setInstruct(Instruction::ROTATE, i, next); 
-		robots->setInstruct(Instruction::FORWARD, i, 
+		robots[i].setInstruct(Instruction::ROTATE, i, next); 
+		robots[i].setInstruct(Instruction::FORWARD, i,
 			get_line_speed(robots[i], workbenches[robots[i].target_id], workbenches[robots[i].next_target_id]));
+		
+	}
+}
+
+void Map::robotChooseTarget(int id) {//可使用其他策略
+	if (robots[id].carryType == 0) {
+		set<PAIR>::iterator it;
+		for (it = resource.begin(); it != resource.end(); ++it)  //使用迭代器进行遍历   
+		{
+			if (!block.count(*it)) {
+				robots[id].target_id = (*it).first;
+				block.insert(*it);
+				break;
+			}
+		}
+	}
+	else {
+		set<PAIR>::iterator it;
+		for (it = require.begin(); it != require.end(); ++it)  //使用迭代器进行遍历   
+		{
+			if (!block.count(*it) && (*it).second == robots[id].carryType) {
+				robots[id].target_id = (*it).first;
+				block.insert(*it);
+				break;
+			}
+		}
+	}
+}
+
+void Map::robotChooseNextTarget(int id) {
+	if (robots[id].carryType != 0) {//机器人有东西，目标是卖，下一个目标是买
+		set<PAIR>::iterator it;
+		for (it = resource.begin(); it != resource.end(); ++it)  //使用迭代器进行遍历   
+		{
+			if (!block.count(*it)) {
+				robots[id].next_target_id = (*it).first;
+				block.insert(*it);
+				break;
+			}
+		}
+	}
+	else {//机器人手里没东西，目标是买，下一个目标是卖 
+		set<PAIR>::iterator it;
+		for (it = require.begin(); it != require.end(); ++it)  //使用迭代器进行遍历   
+		{
+			if (!block.count(*it) && (*it).second == robots[id].target_id) {
+				robots[id].next_target_id = (*it).first;
+				block.insert(*it);
+				break;
+			}
+		}
 	}
 }
 
@@ -151,7 +228,7 @@ float get_angular_velocity(Robot& a, Workbench& b) {
 float get_line_speed(Robot& a, Workbench& b, Workbench& c) {
 	bool flag = speed_up(a, b, c); 
 	float range = radian(a, b);
-	fout << flag;
+	//fout << flag;
 	if (flag)return MAXFORWARD; 
 	float S = sqrtf((b.x - a.x) * (b.x - a.x) + (b.y - a.y) * (b.y - a.y));
 	float v = sqrtf(a.vx * a.vx + a.vy * a.vy);
