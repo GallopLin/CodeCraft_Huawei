@@ -95,12 +95,9 @@ void Map::frameInput() {
 		//原料
 		int k = workbenches[i].materialState ^ product[workbenches[i].type];
 		int num = 0;
-		for (int j = 1; j <= 7; j++) {
-			if (k >> j & 1 && !B[i][j]) {
-				num++;  
-				B_carrier[j].emplace_back(i);//此处i是顺序插入的，很容易造成robot一直在某一个区域的问题，加个洗牌算法
-			}
-		}
+		for (int j = 1; j <= 7; j++)if (k >> j & 1 && !B[i][j])num++;
+		//此处i是顺序插入的，很容易造成robot一直在某一个区域的问题，加个洗牌算法
+		for (int j = 1; j <= 7; j++)if (!B[i][j] && k >> j & 1)B_carrier[j].emplace_back(Material(i, j, num));
 		for (int j = 1; j <= 7; j++)if (!A[i][j] && k >> j & 1)A_carrier[(j - 1) / 3].emplace_back(Material(i, j, num));
 	}  
 	for (int i = 7; i >= 1; i--)shuffle(C_carrier[i]);
@@ -108,6 +105,9 @@ void Map::frameInput() {
 	for (int i = 2; i >= 0; i--)shuffle(A_carrier[i]);
 	for (int i = 2; i >= 0; i--) {
 		sort(A_carrier[i].begin(), A_carrier[i].end(), [&](Material& a, Material& b) { //越容易满
+			return a.num < b.num;
+			});
+		sort(B_carrier[i].begin(), B_carrier[i].end(), [&](Material& a, Material& b) { //越容易满
 			return a.num < b.num;
 			});
 	}
@@ -179,10 +179,10 @@ void Map::set_target(int id) {
 	}	
 	else { 
 		for (auto& i : B_carrier[robots[id].carryType]) {
-			if (B[i][robots[id].carryType])continue;
-			B[i][robots[id].carryType] = true;
-			A[i][robots[id].carryType] = true;
-			robots[id].target_id = i;
+			if (B[i.id][robots[id].carryType])continue;
+			B[i.id][robots[id].carryType] = true;
+			A[i.id][robots[id].carryType] = true;
+			robots[id].target_id = i.id;
 			return;
 		}
 	} 
@@ -252,5 +252,5 @@ int time_consume(Robot& a, Workbench& b) {
 template <typename T>
 void shuffle(vector<T>& v) {
 	int n = v.size();
-	for (int i = n - 1; i >= 0; i--)swap(v[rand() % (n - 1)], v[i]);
+	for (int i = n - 1; i >= 0; i--)swap(v[rand() % n], v[i]);
 }
