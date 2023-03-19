@@ -50,12 +50,15 @@ void Map::init() {
 			cin >> map[i][j];
 			if (map[i][j] == 'A') {
 				robots[rNum].setPos(i, j);
+				//设定初始目的地为空
 				robots[rNum].target_id = -1;
 				++rNum;
 			}
 			else if (map[i][j] >= '1' && map[i][j] <= '9') {
-				workbenches[wNum].setPos(i, j);
-				workbenches[wNum].type = map[i][j] - '0';
+				workbenches[wNum].setPos(i, j); 
+				workbenches[wNum].type = map[i][j] - '0'; 
+				lock_buy[wNum] = false;
+				for (int idx = 0; idx < 8; idx++)lock_sell[wNum][idx] = false;
 				++wNum;
 			}
 		}
@@ -77,45 +80,51 @@ void Map::frameInput() {
 	ios::sync_with_stdio(false);
 	cin.tie(0);
 	cout.tie(0);
+	produced.clear();
+	need.clear();
 	cin >> frameNumber >> money;
 	cin >> workbenchNum;
-	require.clear();
-	resource.clear();
 	for (int i = 0; i < workbenchNum; ++i) {
 		cin >> workbenches[i].type >> workbenches[i].x >> workbenches[i].y >> workbenches[i].restTime
-			>> workbenches[i].materialState >> workbenches[i].productState;
-		if (workbenches[i].productState) {
-			PAIR temp(i, workbenches[i].type);
-			resource.insert(temp);
+			>> workbenches[i].materialState >> workbenches[i].productState; 
+		//产物
+		if (workbenches[i].restTime != -1 && !lock_buy[i]) {//完成或者正在生产，并且没被锁
+			produced[workbenches[i].type].emplace_back(SimpleWorkbench(i, workbenches[i].productState == 1 ? 0 : workbenches[i].restTime));
 		}
-		if (workbenches[i].type == 1 || workbenches[i].type == 2 || workbenches[i].type == 3)continue;
-		int k = product[workbenches[i].type] ^ workbenches[i].materialState;
-		for (int j = 1; j <= 7; ++j) {
-			if (k >> j & 1) {
-				PAIR temp(i, j);
-				require.insert(temp);
+		//原料
+		int k = workbenches[i].materialState ^ product[workbenches[i].type];
+		for (int j = 1; j <= 7; j++) {
+			if (k >> j & 1 && !lock_sell[i][j]) {
+				need.emplace_back(Material(i, j));
 			}
 		}
-	}
+	} 
+	sort(need.begin(), need.end(), [&](Material& a, Material& b) {
+		return (a.type - 1) / 3 > (b.type - 1) / 3;
+		});
 	for (int i = 0; i < MAXROBOTS; ++i) {
 		cin >> robots[i].workbenchId >> robots[i].carryType >> robots[i].timeValue >> robots[i].collisionValue
 			>> robots[i].w >> robots[i].vx >> robots[i].vy >> robots[i].toward >> robots[i].x >> robots[i].y;
 		//设定半径与质量
 		robots[i].R = (robots[i].carryType == EMPTY) ? RR1 : RR2;
 		robots[i].quantity = (robots[i].carryType == EMPTY) ? QUANTITY1 : QUANTITY2;
-		robots[i].v = sqrtf(robots[i].vx * robots[i].vx + robots[i].vy * robots[i].vy); 
-		if (robots[i].target_id == -1) {//初始化目标，多加了一个判断语句，可能会变慢
-			robotChooseTarget(i);
-			robotChooseNextTarget(i);
+		//初始状态或者到达
+		if (robots[i].target_id == robots[i].workbenchId) {
+			if (robots[i].workbenchId != ALONE) {
+				if (robots[i].carryType != 0) {
+					lock_sell[robots[i].workbenchId][robots[i].carryType] = false;
+					robots[i].setInstruct(Instruction::SELL, i, -1); 
+					robots[i].carryType = 0; // 卖掉了，不设置值，下一个target仍然想去卖
+				}
+				else {
+					lock_buy[robots[i].workbenchId] = false;
+					robots[i].setInstruct(Instruction::BUY, i, -1);
+					robots[i].carryType = workbenches[robots[i].workbenchId].type; //同上，不设置，会去买
+				}
+			}
+			set_target(i);
 		}
-		if (robots[i].workbenchId != ALONE && robots[i].workbenchId == robots[i].target_id) {
-			PAIR temp(robots[i].workbenchId, workbenches[robots[i].workbenchId].type);
-			block.erase(temp);
-			robots[i].target_id = -1;
-			if (robots[i].carryType == 0)robots[i].setInstruct(Instruction::BUY, i, 0);
-			else robots[i].setInstruct(Instruction::SELL, i, 0);
-		}
-	}
+	} 
 	string ok;
 	cin >> ok;
 }
@@ -134,69 +143,41 @@ void Map::output() {
 }
 
 void Map::strategy() {
-	for (int i = 0; i < MAXROBOTS; ++i) {
-		//仅用于测试
-		if (robots[i].target_id == -1) {
-			if (robots[i].next_target_id == -1)robots[i].next_target_id = rand() % workbenchNum;
-			robots[i].target_id = robots[i].next_target_id;
-			robotChooseNextTarget(i);
-		}
+	for (int i = 0; i < MAXROBOTS; ++i) {  
 		float next = get_angular_velocity(robots[i], workbenches[robots[i].target_id]);
 		robots[i].setInstruct(Instruction::ROTATE, i, next); 
 		robots[i].setInstruct(Instruction::FORWARD, i,
-			get_line_speed(robots[i], workbenches[robots[i].target_id], workbenches[robots[i].next_target_id]));
+			get_line_speed(robots[i], workbenches[robots[i].target_id]));
 		
 	}
+}  
+
+void Map::set_target(int id) {
+	if (robots[id].carryType == 0) { //手里没货
+		for (auto& i : need) {
+			for (auto& j : produced[i.type]) {
+				if (!lock_buy[j.id] && time_consume(robots[id], workbenches[j.id]) >= j.remain) {
+					lock_buy[j.id] = true;
+					robots[id].target_id = j.id;
+					return;
+				}
+			}
+		}
+	}	
+	else { 
+		for (auto& i : need) {
+			if (!lock_sell[i.id][i.type] && i.type == robots[id].carryType) {
+				lock_sell[i.id][i.type] = true;
+				robots[id].target_id = i.id;
+				return;
+			}
+		}
+	}
+	robots[id].target_id = -1;
 }
 
-void Map::robotChooseTarget(int id) {//可使用其他策略
-	if (robots[id].carryType == 0) {
-		set<PAIR>::iterator it;
-		for (it = resource.begin(); it != resource.end(); ++it)  //使用迭代器进行遍历   
-		{
-			if (!block.count(*it)) {
-				robots[id].target_id = (*it).first;
-				block.insert(*it);
-				break;
-			}
-		}
-	}
-	else {
-		set<PAIR>::iterator it;
-		for (it = require.begin(); it != require.end(); ++it)  //使用迭代器进行遍历   
-		{
-			if (!block.count(*it) && (*it).second == robots[id].carryType) {
-				robots[id].target_id = (*it).first;
-				block.insert(*it);
-				break;
-			}
-		}
-	}
-}
-
-void Map::robotChooseNextTarget(int id) {
-	if (robots[id].carryType != 0) {//机器人有东西，目标是卖，下一个目标是买
-		set<PAIR>::iterator it;
-		for (it = resource.begin(); it != resource.end(); ++it)  //使用迭代器进行遍历   
-		{
-			if (!block.count(*it)) {
-				robots[id].next_target_id = (*it).first;
-				block.insert(*it);
-				break;
-			}
-		}
-	}
-	else {//机器人手里没东西，目标是买，下一个目标是卖 
-		set<PAIR>::iterator it;
-		for (it = require.begin(); it != require.end(); ++it)  //使用迭代器进行遍历   
-		{
-			if (!block.count(*it) && (*it).second == robots[id].target_id) {
-				robots[id].next_target_id = (*it).first;
-				block.insert(*it);
-				break;
-			}
-		}
-	}
+float dis(Robot& a, Workbench& b) {
+	return sqrtf((a.x - b.x) * (a.x - b.x) + (a.y - b.y) * (a.y - b.y));
 }
 
 float dot(Robot& a, Workbench& b) {
@@ -225,26 +206,33 @@ float get_angular_velocity(Robot& a, Workbench& b) {
 	else return S > 0 ? MAXSPIN : -MAXSPIN;
 }
 
-float get_line_speed(Robot& a, Workbench& b, Workbench& c) {
-	bool flag = speed_up(a, b, c); 
-	float range = radian(a, b);
-	if (flag)return MAXFORWARD; 
-	float S = sqrtf((b.x - a.x) * (b.x - a.x) + (b.y - a.y) * (b.y - a.y));
+float get_line_speed(Robot& a, Workbench& b) { 
+	bool is_w = workbench_close_to_wall(b);
+	bool is_r = robot_close_to_wall(a);
+	float range = radian(a, b); 
+	float S = dis(a, b);
 	float v = sqrtf(a.vx * a.vx + a.vy * a.vy);
 	float a_ = MAXTRACTION / a.quantity;
 	float low = (v * v) / (2 * a_);
-	if (S - low <= 0.4 - 1e-8)return 0;
+	//目的地是否靠墙，如果是减速，否则不减速
+	if (S - low <= 0.4 - 1e-8)return is_w ? TERMINALVELOCITY : MAXFORWARD;
 	else {
-		return fabs(range) <= (PI / 16) ? MAXFORWARD : 2.0;
+		/*
+			是否直线，如果是则加速，否则机器人是否靠墙
+		*/
+		return fabs(range) <= (PI / 16) ? MAXFORWARD : (is_r ? STARTSPEED : MAXFORWARD);
 	}
+} 
+
+bool workbench_close_to_wall(Workbench& b) {
+	return b.x <= 2.5 || b.y <= 2.5 || b.x >= 47.5 || b.y >= 47.5;
 }
- 
-bool speed_up(Robot& a, Workbench& b, Workbench& c) {
-	float r = radian(a, b);
-	if (fabs(r) > PI / 16)return false;
-	Robot t = a;
-	t.x = b.x;
-	t.y = b.y;
-	float range = radian(t, c); 
-	return fabs(range) <= (PI * 3 / 8);
+
+bool robot_close_to_wall(Robot& b) {
+	return b.x <= 2.5 || b.y <= 2.5 || b.x >= 47.5 || b.y >= 47.5;
+}
+
+int time_consume(Robot& a, Workbench& b) { 
+	float S = dis(a, b); 
+	return S / MAXFORWARD * 50 + 1;
 }

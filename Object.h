@@ -6,7 +6,7 @@
 #include <cstring>
 #include <cstdio>
 #include <set>
-
+#include <unordered_map>
 
 
 #define PI acos(-1)
@@ -24,6 +24,8 @@
 #define QUANTITY2 DENSITY * PI * RR2 * RR2  //机器人质量（持物品）
 #define EMPTY 0 //未携带
 #define ALONE -1
+#define TERMINALVELOCITY 1.0 //终点速度
+#define STARTSPEED 2.0 //起始速度
 
 using namespace std;
 
@@ -66,14 +68,12 @@ class Robot {
 public:
 	bool ready;
 	int target_id;
-	int next_target_id;
 	int workbenchId;//所处工作台 ID
 	int carryType;//携带物品类型
 	float timeValue;//时间价值系数
 	float collisionValue;//碰撞价值系数
 	float w;//角速度
-	float vx, vy;//线速度(向量)
-	float v;
+	float vx, vy;//线速度(向量) 
 	float toward;//朝向
 	float x, y;//坐标
 	float R; // 半径
@@ -86,26 +86,51 @@ public:
 
 };
 
+class SimpleWorkbench {
+public:
+	int id;	//工作台id
+	int remain; //剩余生产时间 
+	SimpleWorkbench(int id, int remain) :id(id), remain(remain) {};
+};
+
+class Material {
+public:
+	int id; //工作台id
+	int type; //产物类型 
+	Material(int id, int type) :id(id), type(type) {};
+};
+
 class Map {
 public:
-	int money,frameNumber;
+	int money, frameNumber;
 	char map[LENGTH][LENGTH];//使用二维数组记录地图信息（暂定）
 	Robot robots[MAXROBOTS];
 	int workbenchNum;
 	Workbench workbenches[MAXWORKBENCH];
 	float distance[MAXWORKBENCH][MAXWORKBENCH];
-	set<PAIR> resource;//资源
-	set<PAIR> require;//需求
-	set<PAIR> block;//阻塞
+	unordered_map<int, vector<SimpleWorkbench>> produced;
+	unordered_map<int, vector<int>>require;
+	vector<Material>need;
+	bool lock_buy[MAXWORKBENCH];
+	bool lock_sell[MAXWORKBENCH][8];
+
+	/*
+	unordered_map<int, vector<SimpleWorkbench>>C_carrier;
+	unordered_map<int, vector<int>>A_carrier; 
+	unordered_map<int, vector<int>>B_carrier;
+	bool C[MAXWORKBENCH];
+	bool A[MAXWORKBENCH][8];
+	bool B[MAXWORKBENCH][8];
+	*/
 
 	void init();
 	void frameInput();
 	void output();
-	void strategy();//测试函数，瞎放指令
-	void robotChooseTarget(int id);
-	void robotChooseNextTarget(int id);
+	void strategy();//测试函数，瞎放指令  
+	void set_target(int id);
 };
-
+/*距离*/
+float dis(Robot& a, Workbench& b);
 
 /// <summary>
 /// 叉积, >0 顺时针 否则 逆时针
@@ -128,8 +153,16 @@ float radian(Robot& a, Workbench& b);
 /*
 	获取线速度
 */
-float get_line_speed(Robot& a, Workbench& b, Workbench& c);
+float get_line_speed(Robot& a, Workbench& b); 
 /*
-	Q: 横冲直撞
+	靠近墙
 */
-bool speed_up(Robot& a, Workbench& b, Workbench& c);
+bool workbench_close_to_wall(Workbench& b);
+/*
+	靠近墙
+*/
+bool robot_close_to_wall(Robot& b);
+/*
+	估算大概时间
+*/
+int time_consume(Robot& a, Workbench& b);
