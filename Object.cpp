@@ -10,7 +10,7 @@
 
 using namespace std;
 
-//ofstream fout("C:\Users\ASUS\Desktop\新建文件夹\2023\WindowsRelease\log.txt");
+ofstream fout("C:\\Users\\ASUS\Desktop\\新建文件夹\\2023\WindowsRelease\\log.txt");
 //给定指令集合
 const string Instruction::FORWARD = "forward";
 const string Instruction::ROTATE = "rotate";
@@ -37,7 +37,7 @@ void Workbench::setPos(int i, int j) {
 	this->y = 50 - i * 0.5 - 0.25;
 }
 
-void Map::init() {  
+void Map::init() {    
 	srand((unsigned int)time(NULL));
 	//io加速
 	ios::sync_with_stdio(false);
@@ -93,24 +93,18 @@ void Map::frameInput() {
 			C_carrier[workbenches[i].type].emplace_back(SimpleWorkbench(i, workbenches[i].productState == 1 ? 0 : workbenches[i].restTime));
 		}
 		//原料
-		int k = workbenches[i].materialState ^ product[workbenches[i].type];
-		int num = 0;
-		for (int j = 1; j <= 7; j++)if (k >> j & 1 && !B[i][j])num++;
-		//此处i是顺序插入的，很容易造成robot一直在某一个区域的问题，加个洗牌算法
-		for (int j = 1; j <= 7; j++)if (!B[i][j] && k >> j & 1)B_carrier[j].emplace_back(Material(i, j, num));
-		for (int j = 1; j <= 7; j++)if (!A[i][j] && k >> j & 1)A_carrier[(j - 1) / 3].emplace_back(Material(i, j, num));
-	}  
-	for (int i = 7; i >= 1; i--)shuffle(C_carrier[i]);
-	for (int i = 7; i >= 1; i--)shuffle(B_carrier[i]);
-	for (int i = 2; i >= 0; i--)shuffle(A_carrier[i]);
-	for (int i = 2; i >= 0; i--) {
-		sort(A_carrier[i].begin(), A_carrier[i].end(), [&](Material& a, Material& b) { //越容易满
-			return a.num < b.num;
+		int k = workbenches[i].materialState ^ product[workbenches[i].type]; 
+		for (int j = 1; j <= 7; j++) {
+			if (k >> j & 1) {
+				if (!B[i][j])B_carrier[j].emplace_back(i); 
+				if (!A[i][j])A_carrier[(j - 1) / 3].emplace_back(Material(i, j));
+			}
+		}
+	}   
+	for (int i = 2; i >= 0; i--)
+		sort(A_carrier[i].begin(), A_carrier[i].end(), [&](Material& a, Material& b) {
+		return (a.type - 1) / 3 > (b.type - 1) / 3;
 			});
-		sort(B_carrier[i].begin(), B_carrier[i].end(), [&](Material& a, Material& b) { //越容易满
-			return a.num < b.num;
-			});
-	}
 	for (int i = 0; i < MAXROBOTS; ++i) {
 		cin >> robots[i].workbenchId >> robots[i].carryType >> robots[i].timeValue >> robots[i].collisionValue
 			>> robots[i].w >> robots[i].vx >> robots[i].vy >> robots[i].toward >> robots[i].x >> robots[i].y;
@@ -118,7 +112,7 @@ void Map::frameInput() {
 		robots[i].R = (robots[i].carryType == EMPTY) ? RR1 : RR2;
 		robots[i].quantity = (robots[i].carryType == EMPTY) ? QUANTITY1 : QUANTITY2;
 		//初始状态或者到达
-		if (robots[i].target_id == robots[i].workbenchId) {
+		if (robots[i].target_id == robots[i].workbenchId) { 
 			if (robots[i].workbenchId != ALONE) {
 				if (robots[i].carryType != 0) {
 					A[robots[i].workbenchId][robots[i].carryType] = false;
@@ -126,7 +120,8 @@ void Map::frameInput() {
 					robots[i].setInstruct(Instruction::SELL, i, -1); 
 					robots[i].carryType = 0; // 卖掉了，不设置值，下一个target仍然想去卖
 				}
-				else {
+				else { 
+					fout << frameNumber << " " << time_consume(robots[i], workbenches[robots[i].target_id]) << " " << workbenches[robots[i].target_id].restTime << endl;
 					C[robots[i].workbenchId] = false;
 					robots[i].setInstruct(Instruction::BUY, i, -1);
 					robots[i].carryType = workbenches[robots[i].workbenchId].type; //同上，不设置，会去买
@@ -179,10 +174,10 @@ void Map::set_target(int id) {
 	}	
 	else { 
 		for (auto& i : B_carrier[robots[id].carryType]) {
-			if (B[i.id][robots[id].carryType])continue;
-			B[i.id][robots[id].carryType] = true;
-			A[i.id][robots[id].carryType] = true;
-			robots[id].target_id = i.id;
+			if (B[i][robots[id].carryType])continue;
+			B[i][robots[id].carryType] = true;
+			A[i][robots[id].carryType] = true;
+			robots[id].target_id = i;
 			return;
 		}
 	} 
@@ -245,8 +240,8 @@ bool robot_close_to_wall(Robot& b) {
 }
 
 int time_consume(Robot& a, Workbench& b) { 
-	float S = dis(a, b); 
-	return S / MAXFORWARD * 50 + 1;
+	float S = dis(a, b) - 0.4;
+	return S / MAXFORWARD * 50 ;
 }
 
 template <typename T>

@@ -11,7 +11,7 @@ using namespace std;
 #pragma warning (disable:4996)
 
 
-int main() { 
+int main() {  
 	Map map;
 	map.init();
 	while (1) {
