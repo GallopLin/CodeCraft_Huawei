@@ -57,8 +57,8 @@ void Map::init() {
 			else if (map[i][j] >= '1' && map[i][j] <= '9') {
 				workbenches[wNum].setPos(i, j); 
 				workbenches[wNum].type = map[i][j] - '0'; 
-				lock_buy[wNum] = false;
-				for (int idx = 0; idx < 8; idx++)lock_sell[wNum][idx] = false;
+				C[wNum] = false;
+				for (int idx = 0; idx < 8; idx++)A[wNum][idx] = B[wNum][idx] =  false;
 				++wNum;
 			}
 		}
@@ -80,28 +80,37 @@ void Map::frameInput() {
 	ios::sync_with_stdio(false);
 	cin.tie(0);
 	cout.tie(0);
-	produced.clear();
-	need.clear();
+	C_carrier.clear();
+	A_carrier.clear();
+	B_carrier.clear();
 	cin >> frameNumber >> money;
 	cin >> workbenchNum;
 	for (int i = 0; i < workbenchNum; ++i) {
 		cin >> workbenches[i].type >> workbenches[i].x >> workbenches[i].y >> workbenches[i].restTime
 			>> workbenches[i].materialState >> workbenches[i].productState; 
 		//产物
-		if (workbenches[i].restTime != -1 && !lock_buy[i]) {//完成或者正在生产，并且没被锁
-			produced[workbenches[i].type].emplace_back(SimpleWorkbench(i, workbenches[i].productState == 1 ? 0 : workbenches[i].restTime));
+		if (workbenches[i].restTime != -1 && !C[i]) {//完成或者正在生产，并且没被锁
+			C_carrier[workbenches[i].type].emplace_back(SimpleWorkbench(i, workbenches[i].productState == 1 ? 0 : workbenches[i].restTime));
 		}
 		//原料
 		int k = workbenches[i].materialState ^ product[workbenches[i].type];
+		int num = 0;
 		for (int j = 1; j <= 7; j++) {
-			if (k >> j & 1 && !lock_sell[i][j]) {
-				need.emplace_back(Material(i, j));
+			if (k >> j & 1 && !B[i][j]) {
+				num++;  
+				B_carrier[j].emplace_back(i);//此处i是顺序插入的，很容易造成robot一直在某一个区域的问题，加个洗牌算法
 			}
 		}
-	} 
-	sort(need.begin(), need.end(), [&](Material& a, Material& b) {
-		return (a.type - 1) / 3 > (b.type - 1) / 3;
-		});
+		for (int j = 1; j <= 7; j++)if (!A[i][j] && k >> j & 1)A_carrier[(j - 1) / 3].emplace_back(Material(i, j, num));
+	}  
+	for (int i = 7; i >= 1; i--)shuffle(C_carrier[i]);
+	for (int i = 7; i >= 1; i--)shuffle(B_carrier[i]);
+	for (int i = 2; i >= 0; i--)shuffle(A_carrier[i]);
+	for (int i = 2; i >= 0; i--) {
+		sort(A_carrier[i].begin(), A_carrier[i].end(), [&](Material& a, Material& b) { //越容易满
+			return a.num < b.num;
+			});
+	}
 	for (int i = 0; i < MAXROBOTS; ++i) {
 		cin >> robots[i].workbenchId >> robots[i].carryType >> robots[i].timeValue >> robots[i].collisionValue
 			>> robots[i].w >> robots[i].vx >> robots[i].vy >> robots[i].toward >> robots[i].x >> robots[i].y;
@@ -112,12 +121,13 @@ void Map::frameInput() {
 		if (robots[i].target_id == robots[i].workbenchId) {
 			if (robots[i].workbenchId != ALONE) {
 				if (robots[i].carryType != 0) {
-					lock_sell[robots[i].workbenchId][robots[i].carryType] = false;
+					A[robots[i].workbenchId][robots[i].carryType] = false;
+					B[robots[i].workbenchId][robots[i].carryType] = false;
 					robots[i].setInstruct(Instruction::SELL, i, -1); 
 					robots[i].carryType = 0; // 卖掉了，不设置值，下一个target仍然想去卖
 				}
 				else {
-					lock_buy[robots[i].workbenchId] = false;
+					C[robots[i].workbenchId] = false;
 					robots[i].setInstruct(Instruction::BUY, i, -1);
 					robots[i].carryType = workbenches[robots[i].workbenchId].type; //同上，不设置，会去买
 				}
@@ -154,27 +164,29 @@ void Map::strategy() {
 
 void Map::set_target(int id) {
 	if (robots[id].carryType == 0) { //手里没货
-		for (auto& i : need) {
-			for (auto& j : produced[i.type]) {
-				if (!lock_buy[j.id] && time_consume(robots[id], workbenches[j.id]) >= j.remain) {
-					lock_buy[j.id] = true;
-					robots[id].target_id = j.id;
-					return;
+		for (int i = 2; i >= 0; i--) {
+			for (auto& j : A_carrier[i]) {
+				if (A[j.id][j.type])continue;
+				for (auto& k : C_carrier[j.type]) {
+					if (C[k.id] || time_consume(robots[id], workbenches[k.id]) < k.remain)continue;
+					C[k.id] = true;
+					A[j.id][j.type] = true;
+					robots[id].target_id = k.id;
+					return; 
 				}
 			}
 		}
 	}	
 	else { 
-		for (auto& i : need) {
-			if (!lock_sell[i.id][i.type] && i.type == robots[id].carryType) {
-				lock_sell[i.id][i.type] = true;
-				robots[id].target_id = i.id;
-				return;
-			}
+		for (auto& i : B_carrier[robots[id].carryType]) {
+			if (B[i][robots[id].carryType])continue;
+			B[i][robots[id].carryType] = true;
+			A[i][robots[id].carryType] = true;
+			robots[id].target_id = i;
+			return;
 		}
-	}
-	robots[id].target_id = -1;
-}
+	} 
+} 
 
 float dis(Robot& a, Workbench& b) {
 	return sqrtf((a.x - b.x) * (a.x - b.x) + (a.y - b.y) * (a.y - b.y));
@@ -235,4 +247,10 @@ bool robot_close_to_wall(Robot& b) {
 int time_consume(Robot& a, Workbench& b) { 
 	float S = dis(a, b); 
 	return S / MAXFORWARD * 50 + 1;
+}
+
+template <typename T>
+void shuffle(vector<T>& v) {
+	int n = v.size();
+	for (int i = n - 1; i >= 0; i--)swap(v[rand() % (n - 1)], v[i]);
 }
