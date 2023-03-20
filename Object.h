@@ -90,6 +90,7 @@ class SimpleWorkbench {
 public:
 	int id;	//工作台id
 	int remain; //剩余生产时间 
+	SimpleWorkbench() {};
 	SimpleWorkbench(int id, int remain) :id(id), remain(remain) {}; 
 };
 
@@ -97,8 +98,9 @@ class Material {
 public:
 	int id; //工作台id
 	int type; //产物类型  
+	int num;
 	Material() {};
-	Material(int id, int type) :id(id), type(type) {};
+	Material(int id, int type,int num) :id(id), type(type),num(num) {};
 };
 
 class Map {
@@ -111,7 +113,7 @@ public:
 	float distance[MAXWORKBENCH][MAXWORKBENCH];  
 	unordered_map<int, vector<SimpleWorkbench>>C_carrier;
 	unordered_map<int, vector<Material>>A_carrier;
-	unordered_map<int, vector<int>>B_carrier;
+	unordered_map<int, vector<Material>>B_carrier;
 	bool C[MAXWORKBENCH];
 	bool A[MAXWORKBENCH][8];
 	bool B[MAXWORKBENCH][8]; 

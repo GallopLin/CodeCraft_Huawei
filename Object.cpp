@@ -94,13 +94,17 @@ void Map::frameInput() {
 		}
 		//原料
 		int k = workbenches[i].materialState ^ product[workbenches[i].type]; 
+		int num = 0;
+		for (int j = 1; j <= 7; j++)if (k >> j & 1 && !B[i][j])num++;
 		for (int j = 1; j <= 7; j++) {
 			if (k >> j & 1) {
-				if (!B[i][j])B_carrier[j].emplace_back(i); 
-				if (!A[i][j])A_carrier[(j - 1) / 3].emplace_back(Material(i, j));
+				if (!B[i][j])B_carrier[j].emplace_back(Material(i, j, num));
+				if (!A[i][j])A_carrier[(j - 1) / 3 + 1].emplace_back(Material(i, j, num));
 			}
 		}
-	}    
+	}     
+	for (int j = 1; j <= 7; j++)sort(B_carrier[j].begin(), B_carrier[j].end(), [&](Material& a, Material& b) {return a.num < b.num; });
+	for (int j = 1; j <= 3; j++)sort(A_carrier[j].begin(), A_carrier[j].end(), [&](Material& a, Material& b) {return a.num < b.num; });
 	for (int i = 0; i < MAXROBOTS; ++i) {
 		cin >> robots[i].workbenchId >> robots[i].carryType >> robots[i].timeValue >> robots[i].collisionValue
 			>> robots[i].w >> robots[i].vx >> robots[i].vy >> robots[i].toward >> robots[i].x >> robots[i].y;
@@ -120,7 +124,7 @@ void Map::frameInput() {
 		for (int q = 7; q >= 1; q--) {
 			fout << q << "type:";
 			for (auto& j : B_carrier[q]) {
-				fout << j << " ";
+				fout << j.id << " ";
 			}
 			fout << endl;
 		}
@@ -130,8 +134,9 @@ void Map::frameInput() {
 				fout << j.id << " " << j.remain << endl;
 			}
 		}
-	}
-	*/ 
+	} 
+	*/
+	
 	string ok;
 	cin >> ok;
 }
@@ -158,7 +163,7 @@ void Map::strategy() {
 					A[robots[i].workbenchId][robots[i].carryType] = false;
 					B[robots[i].workbenchId][robots[i].carryType] = false;
 					robots[i].setInstruct(Instruction::SELL, i, -1);
-					robots[i].carryType = 0; // 卖掉了，不设置值，下一个target仍然想去卖
+					robots[i].carryType = 0; // 卖掉了，不设置值，下一个target仍然想去卖 
 				}
 				else {
 					C[robots[i].workbenchId] = false;
@@ -178,24 +183,32 @@ void Map::strategy() {
 
 void Map::set_target(int id) {
 	if (robots[id].carryType == 0) { //手里没货
-		for (int i = 2; i >= 0; i--) {
+		for (int i = 3; i >= 1; i--) {
 			for (auto& j : A_carrier[i]) {
 				if (A[j.id][j.type])continue;
+				float diss = 1e9;
+				SimpleWorkbench t;
 				for (auto& k : C_carrier[j.type]) {
-					if (C[k.id] || time_consume(robots[id], workbenches[k.id]) < k.remain)continue; 
-					C[k.id] = true;
+					if (C[k.id] || time_consume(robots[id], workbenches[k.id]) < k.remain)continue;
+					if (dis(robots[id], workbenches[k.id]) < diss) {
+						diss = dis(robots[id], workbenches[k.id]);
+						t = k;
+					} 
+				}
+				if (diss < 1e9) {
+					C[t.id] = true;
 					A[j.id][j.type] = true;
-					robots[id].target_id = k.id;
-					return; 
+					robots[id].target_id = t.id;
+					return;
 				}
 			}
 		}
 	}	
 	else { 
 		for (auto& i : B_carrier[robots[id].carryType]) {
-			if (B[i][robots[id].carryType] || !A[i][robots[id].carryType])continue;
-			B[i][robots[id].carryType] = true; 
-			robots[id].target_id = i;
+			if (B[i.id][robots[id].carryType] || !A[i.id][robots[id].carryType])continue;
+			B[i.id][robots[id].carryType] = true; 
+			robots[id].target_id = i.id;
 			return;
 		}
 	}
