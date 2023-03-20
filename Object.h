@@ -123,10 +123,13 @@ public:
 	void output();
 	void strategy();//测试函数，瞎放指令  
 	void set_target(int id);
-};
-/*距离*/
-float dis(Robot& a, Workbench& b);
+}; 
 
+/*
+	距离
+*/
+template <typename T, typename T1>
+float dis(T& a, T1& b);
 /// <summary>
 /// 叉积, >0 顺时针 否则 逆时针
 /// </summary>
@@ -159,10 +162,20 @@ bool workbench_close_to_wall(Workbench& b);
 bool robot_close_to_wall(Robot& b);
 /*
 	估算大概时间
+	robot去往工作台大概就3种
+	1.全程加速
+	2.先加速后减速
+	3.全程减速
+	只要考虑一下目标是不是靠墙就知道了
+	这里不包含旋转的时间，所以会比真正时间小一些，而这也是我们想得到的结果
 */
 int time_consume(Robot& a, Workbench& b);
 /*
 	打乱
-*/
+*/ 
 template <typename T>
 void shuffle(vector<T>& v);
+/*
+	碰撞检测
+*/ 
+bool collision_detection(Robot& a, Robot& b);

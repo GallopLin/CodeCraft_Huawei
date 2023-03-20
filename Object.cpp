@@ -105,7 +105,9 @@ void Map::frameInput() {
 	}     
 	for (int j = 1; j <= 7; j++)sort(B_carrier[j].begin(), B_carrier[j].end(), [&](Material& a, Material& b) {return a.num < b.num; });
 	for (int j = 1; j <= 3; j++)sort(A_carrier[j].begin(), A_carrier[j].end(), [&](Material& a, Material& b) {return a.num < b.num; });
-	for (int i = 0; i < MAXROBOTS; ++i) {
+	fout << frameNumber << endl;
+	for (int i = 0; i < MAXROBOTS; ++i) { 
+		fout << robots[i].vx << " " << robots[i].vy << endl;
 		cin >> robots[i].workbenchId >> robots[i].carryType >> robots[i].timeValue >> robots[i].collisionValue
 			>> robots[i].w >> robots[i].vx >> robots[i].vy >> robots[i].toward >> robots[i].x >> robots[i].y;
 		//设定半径与质量
@@ -178,11 +180,17 @@ void Map::strategy() {
 			get_angular_velocity(robots[i], workbenches[robots[i].target_id]));
 		robots[i].setInstruct(Instruction::FORWARD, i,
 			get_line_speed(robots[i], workbenches[robots[i].target_id]));
+		for (int j = i + 1; j < MAXROBOTS; j++)
+			if (collision_detection(robots[i],robots[j])) {
+				robots[i].setInstruct(Instruction::ROTATE, i, MAXSPIN);
+				robots[i].setInstruct(Instruction::FORWARD, i, MAXBACKWARD);
+				break;
+			}
 	}
 }  
 
 void Map::set_target(int id) {
-	if (robots[id].carryType == 0) { //手里没货
+	if (robots[id].carryType == 0) { //手里没货 
 		for (int i = 3; i >= 1; i--) {
 			for (auto& j : A_carrier[i]) {
 				if (A[j.id][j.type])continue;
@@ -204,10 +212,10 @@ void Map::set_target(int id) {
 			}
 		}
 	}	
-	else { 
+	else {  
 		for (auto& i : B_carrier[robots[id].carryType]) {
 			if (B[i.id][robots[id].carryType] || !A[i.id][robots[id].carryType])continue;
-			B[i.id][robots[id].carryType] = true; 
+			B[i.id][robots[id].carryType] = true;
 			robots[id].target_id = i.id;
 			return;
 		}
@@ -215,9 +223,10 @@ void Map::set_target(int id) {
 	robots[id].target_id = -1;
 } 
 
-float dis(Robot& a, Workbench& b) {
+template <typename T, typename T1>
+float dis(T& a, T1& b) {
 	return sqrtf((a.x - b.x) * (a.x - b.x) + (a.y - b.y) * (a.y - b.y));
-}
+} 
 
 float dot(Robot& a, Workbench& b) {
 	return cos(a.toward) * (b.x - a.x) + sin(a.toward) * (b.y - a.y);
@@ -271,13 +280,45 @@ bool robot_close_to_wall(Robot& b) {
 	return b.x <= 2.5 || b.y <= 2.5 || b.x >= 47.5 || b.y >= 47.5;
 }
 
-int time_consume(Robot& a, Workbench& b) { 
+int time_consume(Robot& a, Workbench& b) {  
+	float t = 0;
+	bool is_w = workbench_close_to_wall(b);  
 	float S = dis(a, b);
-	return S / MAXFORWARD * 50 ;
+	float v = sqrtf(a.vx * a.vx + a.vy * a.vy);
+	float a_ = MAXTRACTION / a.quantity;
+	if (is_w) { // 先加速后减速，或者全程减速
+		float S0 = v * v / (2 * a_);
+		if (S0 < S) {// 先加速后减速，则最后速度应该是TERMINALVELOCITY
+			float A = 2 * a_ * a_;
+			float B = 4 * a_ * v;
+			float C = v * v - 2 * a_ * S - TERMINALVELOCITY;
+			t = (-B + sqrtf(B * B - 4 * A * C)) / (2 * A);
+			t += (v + t * a_ - 1) / a_;
+		}
+		else {
+			t = (2 * v - sqrtf(4 * v * v - 8 * a_ * S)) / (2 * a_);
+		}
+	}
+	else {	//全程加速
+		float S0 = (MAXFORWARD * MAXFORWARD - v * v) / (2 * a_);
+		if (S0 < S) {
+			t = (MAXFORWARD - v) / a_ + (S - S0) / MAXFORWARD;
+		}
+		else {
+			t = (sqrtf(4 * v * v + 8 * a_ * S) - 2 * v) / (2 * a_);
+		}
+	}
+	return t * 50;
 }
 
 template <typename T>
 void shuffle(vector<T>& v) {
 	int n = v.size();
 	for (int i = n - 1; i >= 0; i--)swap(v[rand() % n], v[i]);
+}
+
+bool collision_detection(Robot& a, Robot& b) {
+	float R = a.R + b.R + 0.1; 
+	if (dis(a, b) <= R)return true;
+	return false;
 }
