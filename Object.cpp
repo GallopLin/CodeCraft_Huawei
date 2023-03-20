@@ -108,6 +108,30 @@ void Map::frameInput() {
 		robots[i].R = (robots[i].carryType == EMPTY) ? RR1 : RR2;
 		robots[i].quantity = (robots[i].carryType == EMPTY) ? QUANTITY1 : QUANTITY2;
 	} 
+	/*
+	if (frameNumber == 6651) {
+		fout << "A" << endl;
+		for (int q = 2; q >= 0; q--) {
+			for (auto& j : A_carrier[q]) {
+				fout << j.id << " " << j.type << endl;
+			}
+		}
+		fout << "B" << endl;
+		for (int q = 7; q >= 1; q--) {
+			fout << q << "type:";
+			for (auto& j : B_carrier[q]) {
+				fout << j << " ";
+			}
+			fout << endl;
+		}
+		fout << "C" << endl;
+		for (int q = 7; q >= 1; q--) {
+			for (auto& j : C_carrier[q]) {
+				fout << j.id << " " << j.remain << endl;
+			}
+		}
+	}
+	*/ 
 	string ok;
 	cin >> ok;
 }
@@ -169,9 +193,8 @@ void Map::set_target(int id) {
 	}	
 	else { 
 		for (auto& i : B_carrier[robots[id].carryType]) {
-			if (B[i][robots[id].carryType])continue;
-			B[i][robots[id].carryType] = true;
-			A[i][robots[id].carryType] = true;
+			if (B[i][robots[id].carryType] || !A[i][robots[id].carryType])continue;
+			B[i][robots[id].carryType] = true; 
 			robots[id].target_id = i;
 			return;
 		}
