@@ -10,7 +10,7 @@
 
 using namespace std;
 
-ofstream fout("C:\\Users\\ASUS\Desktop\\新建文件夹\\2023\WindowsRelease\\log.txt");
+ofstream fout("C:\\Users\\ASUS\\Desktop\\HUAWEI\\2023\\WindowsRelease\\log.txt",ios::out);
 //给定指令集合
 const string Instruction::FORWARD = "forward";
 const string Instruction::ROTATE = "rotate";
@@ -37,7 +37,7 @@ void Workbench::setPos(int i, int j) {
 	this->y = 50 - i * 0.5 - 0.25;
 }
 
-void Map::init() {    
+void Map::init() {      
 	srand((unsigned int)time(NULL));
 	//io加速
 	ios::sync_with_stdio(false);
@@ -100,35 +100,13 @@ void Map::frameInput() {
 				if (!A[i][j])A_carrier[(j - 1) / 3].emplace_back(Material(i, j));
 			}
 		}
-	}   
-	for (int i = 2; i >= 0; i--)
-		sort(A_carrier[i].begin(), A_carrier[i].end(), [&](Material& a, Material& b) {
-		return (a.type - 1) / 3 > (b.type - 1) / 3;
-			});
+	}    
 	for (int i = 0; i < MAXROBOTS; ++i) {
 		cin >> robots[i].workbenchId >> robots[i].carryType >> robots[i].timeValue >> robots[i].collisionValue
 			>> robots[i].w >> robots[i].vx >> robots[i].vy >> robots[i].toward >> robots[i].x >> robots[i].y;
 		//设定半径与质量
 		robots[i].R = (robots[i].carryType == EMPTY) ? RR1 : RR2;
 		robots[i].quantity = (robots[i].carryType == EMPTY) ? QUANTITY1 : QUANTITY2;
-		//初始状态或者到达
-		if (robots[i].target_id == robots[i].workbenchId) { 
-			if (robots[i].workbenchId != ALONE) {
-				if (robots[i].carryType != 0) {
-					A[robots[i].workbenchId][robots[i].carryType] = false;
-					B[robots[i].workbenchId][robots[i].carryType] = false;
-					robots[i].setInstruct(Instruction::SELL, i, -1); 
-					robots[i].carryType = 0; // 卖掉了，不设置值，下一个target仍然想去卖
-				}
-				else { 
-					fout << frameNumber << " " << time_consume(robots[i], workbenches[robots[i].target_id]) << " " << workbenches[robots[i].target_id].restTime << endl;
-					C[robots[i].workbenchId] = false;
-					robots[i].setInstruct(Instruction::BUY, i, -1);
-					robots[i].carryType = workbenches[robots[i].workbenchId].type; //同上，不设置，会去买
-				}
-			}
-			set_target(i);
-		}
 	} 
 	string ok;
 	cin >> ok;
@@ -148,12 +126,29 @@ void Map::output() {
 }
 
 void Map::strategy() {
-	for (int i = 0; i < MAXROBOTS; ++i) {  
-		float next = get_angular_velocity(robots[i], workbenches[robots[i].target_id]);
-		robots[i].setInstruct(Instruction::ROTATE, i, next); 
+	for (int i = 0; i < MAXROBOTS; ++i) {   
+		//初始状态或者到达
+		if (robots[i].target_id == robots[i].workbenchId) {
+			if (robots[i].workbenchId != ALONE) {
+				if (robots[i].carryType != 0) {
+					A[robots[i].workbenchId][robots[i].carryType] = false;
+					B[robots[i].workbenchId][robots[i].carryType] = false;
+					robots[i].setInstruct(Instruction::SELL, i, -1);
+					robots[i].carryType = 0; // 卖掉了，不设置值，下一个target仍然想去卖
+				}
+				else {
+					C[robots[i].workbenchId] = false;
+					robots[i].setInstruct(Instruction::BUY, i, -1);
+					robots[i].carryType = workbenches[robots[i].workbenchId].type; //同上，不设置，会去买
+				}
+			} 
+			set_target(i);
+		} 
+		//运动 
+		robots[i].setInstruct(Instruction::ROTATE, i, 
+			get_angular_velocity(robots[i], workbenches[robots[i].target_id]));
 		robots[i].setInstruct(Instruction::FORWARD, i,
 			get_line_speed(robots[i], workbenches[robots[i].target_id]));
-		
 	}
 }  
 
@@ -163,7 +158,7 @@ void Map::set_target(int id) {
 			for (auto& j : A_carrier[i]) {
 				if (A[j.id][j.type])continue;
 				for (auto& k : C_carrier[j.type]) {
-					if (C[k.id] || time_consume(robots[id], workbenches[k.id]) < k.remain)continue;
+					if (C[k.id] || time_consume(robots[id], workbenches[k.id]) < k.remain)continue; 
 					C[k.id] = true;
 					A[j.id][j.type] = true;
 					robots[id].target_id = k.id;
@@ -180,7 +175,8 @@ void Map::set_target(int id) {
 			robots[id].target_id = i;
 			return;
 		}
-	} 
+	}
+	robots[id].target_id = -1;
 } 
 
 float dis(Robot& a, Workbench& b) {
@@ -240,7 +236,7 @@ bool robot_close_to_wall(Robot& b) {
 }
 
 int time_consume(Robot& a, Workbench& b) { 
-	float S = dis(a, b) - 0.4;
+	float S = dis(a, b);
 	return S / MAXFORWARD * 50 ;
 }
 
