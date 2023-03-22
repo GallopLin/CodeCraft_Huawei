@@ -130,7 +130,7 @@ void Map::frameInput() {
 			for (int i = 7; i >= 1; i--)fout << need[i] << " ";
 			fout << endl;
 		}
-	 
+	
 	string ok;
 	cin >> ok;
 }
@@ -234,7 +234,7 @@ void Map::set_target(int id) {
 					}
 				}
 			if ((le - 1) % 3 == 0 && diss < 1e9) { //选择这个工作台
-				C[t.id] = true;
+				if (workbenches[t.id].type != 9) C[t.id] = true;
 				workbenches[t.id].robot_id = id;
 				robots[id].target_id = t.id; 
 				need[chosen]--;

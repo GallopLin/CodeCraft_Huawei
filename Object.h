@@ -9,7 +9,7 @@
 #include <queue>
 #include <unordered_map>
 
-
+#define MAXFRAME 9000
 #define PI acos(-1)
 #define INIT_CAPITAL 200000  //初始资金
 #define JUDGEDIS 0.4  //机器人-工作台判定距离
