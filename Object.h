@@ -126,6 +126,8 @@ public:
 	void strategy();//≤‚ ‘∫Ø ˝£¨œπ∑≈÷∏¡Ó  
 	void set_target(int id);
 	void buy_next(int id);
+	void robot_buy(int id);
+	void robot_sell(int id);
 }; 
 
 /*
