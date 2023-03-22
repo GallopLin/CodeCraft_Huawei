@@ -55,10 +55,11 @@ void Map::init() {
 				++rNum;
 			}
 			else if (map[i][j] >= '1' && map[i][j] <= '9') {
+				if (map[i][j] - '0' >= 8)need[7] = 1e9; 
 				workbenches[wNum].setPos(i, j); 
 				workbenches[wNum].type = map[i][j] - '0'; 
 				C[wNum] = false;
-				for (int idx = 0; idx < 8; idx++)A[wNum][idx] = B[wNum][idx] =  false;
+				for (int idx = 0; idx < 8; idx++)B[wNum][idx] =  false;
 				++wNum;
 			}
 		}
@@ -80,63 +81,58 @@ void Map::frameInput() {
 	ios::sync_with_stdio(false);
 	cin.tie(0);
 	cout.tie(0);
-	C_carrier.clear();
-	A_carrier.clear();
+	C_carrier.clear(); 
 	B_carrier.clear();
 	cin >> frameNumber >> money;
+	while (!deal.empty() && deal.top().first <= frameNumber) {
+		for (int j = 7; j >= 1; j--)if (product[deal.top().second] >> j & 1) {
+			need[j]++; 
+		}
+		deal.pop();
+	}
 	cin >> workbenchNum;
 	for (int i = 0; i < workbenchNum; ++i) {
 		cin >> workbenches[i].type >> workbenches[i].x >> workbenches[i].y >> workbenches[i].restTime
 			>> workbenches[i].materialState >> workbenches[i].productState; 
 		//产物
-		if (workbenches[i].restTime != -1 && !C[i]) {//完成或者正在生产，并且没被锁
+		if (!C[i] && workbenches[i].productState == 1 || workbenches[i].restTime >= 0) {//完成或者正在生产，并且没被锁
 			C_carrier[workbenches[i].type].emplace_back(SimpleWorkbench(i, workbenches[i].productState == 1 ? 0 : workbenches[i].restTime));
 		}
 		//原料
 		int k = workbenches[i].materialState ^ product[workbenches[i].type]; 
 		int num = 0;
-		for (int j = 1; j <= 7; j++)if (k >> j & 1 && !B[i][j])num++;
+		for (int j = 1; j <= 7; j++)if (k >> j & 1)num++;
 		for (int j = 1; j <= 7; j++) {
 			if (k >> j & 1) {
-				if (!B[i][j])B_carrier[j].emplace_back(Material(i, j, num));
-				if (!A[i][j])A_carrier[(j - 1) / 3 + 1].emplace_back(Material(i, j, num));
+				if (frameNumber == 1)need[j]++;
+				if (!B[i][j])B_carrier[j].emplace_back(Material(i, j, num)); 
 			}
 		}
 	}     
-	for (int j = 1; j <= 7; j++)sort(B_carrier[j].begin(), B_carrier[j].end(), [&](Material& a, Material& b) {return a.num < b.num; });
-	for (int j = 1; j <= 3; j++)sort(A_carrier[j].begin(), A_carrier[j].end(), [&](Material& a, Material& b) {return a.num < b.num; });
-	fout << frameNumber << endl;
-	for (int i = 0; i < MAXROBOTS; ++i) { 
-		fout << robots[i].vx << " " << robots[i].vy << endl;
+	for (int j = 1; j <= 7; j++)sort(B_carrier[j].begin(), B_carrier[j].end(), [&](Material& a, Material& b) {return a.num < b.num; }); 
+	for (int i = 0; i < MAXROBOTS; ++i) {  
 		cin >> robots[i].workbenchId >> robots[i].carryType >> robots[i].timeValue >> robots[i].collisionValue
 			>> robots[i].w >> robots[i].vx >> robots[i].vy >> robots[i].toward >> robots[i].x >> robots[i].y;
 		//设定半径与质量
 		robots[i].R = (robots[i].carryType == EMPTY) ? RR1 : RR2;
 		robots[i].quantity = (robots[i].carryType == EMPTY) ? QUANTITY1 : QUANTITY2;
-	} 
+		robots[i].ready = false;
+	}
 	/*
-	if (frameNumber == 6651) {
-		fout << "A" << endl;
-		for (int q = 2; q >= 0; q--) {
-			for (auto& j : A_carrier[q]) {
-				fout << j.id << " " << j.type << endl;
-			}
-		}
-		fout << "B" << endl;
-		for (int q = 7; q >= 1; q--) {
-			fout << q << "type:";
-			for (auto& j : B_carrier[q]) {
-				fout << j.id << " ";
-			}
+	if (frameNumber <= 4200 && frameNumber >=3600) {
+		fout << "frame" << frameNumber << endl;
+		for (int i = 7; i >= 1; i--) {
+			fout << i << "type :";
+			for(auto &j: C_carrier[i])
+			fout << j.id << " ";
 			fout << endl;
+		} 
+		fout << C[14] << endl;
+		fout << (workbenches[14].productState == 1 ? 0 : workbenches[14].restTime) << endl;
+		for (int j = 3; j >= 0; j--) {
+			fout << time_consume(robots[j], workbenches[14]) << endl;
 		}
-		fout << "C" << endl;
-		for (int q = 7; q >= 1; q--) {
-			for (auto& j : C_carrier[q]) {
-				fout << j.id << " " << j.remain << endl;
-			}
-		}
-	} 
+	}
 	*/
 	
 	string ok;
@@ -161,16 +157,37 @@ void Map::strategy() {
 		//初始状态或者到达
 		if (robots[i].target_id == robots[i].workbenchId) {
 			if (robots[i].workbenchId != ALONE) {
-				if (robots[i].carryType != 0) {
-					A[robots[i].workbenchId][robots[i].carryType] = false;
+				if (robots[i].carryType != 0) {	// 卖给工作台
+					//所有原料凑齐，但要分情况讨论
+					workbenches[robots[i].workbenchId].materialState |= (1 << robots[i].carryType);
+					int type = workbenches[robots[i].workbenchId].type;
+					if (workbenches[robots[i].workbenchId].materialState == product[type] && type <= 7) {
+						int remain = workbenches[robots[i].workbenchId].restTime;
+						if (remain == -1)deal.push({ frameNumber, type });
+						else if (remain >= 0 && workbenches[robots[i].workbenchId].productState != 1)
+							deal.push({ frameNumber + remain, type });
+					}
 					B[robots[i].workbenchId][robots[i].carryType] = false;
 					robots[i].setInstruct(Instruction::SELL, i, -1);
 					robots[i].carryType = 0; // 卖掉了，不设置值，下一个target仍然想去卖 
+					// 
+					if (robots[i].ready) {
+						robots[i].setInstruct(Instruction::BUY, i, -1);
+						robots[i].ready = false;
+						if (workbenches[robots[i].workbenchId].productState == 1)robots[i].carryType = type;
+					}
 				}
-				else {
+				else {	// 向工作台买东西
+					//买完之后看看是否会继续生产
+					int type = workbenches[robots[i].workbenchId].type;
+					if (workbenches[robots[i].workbenchId].materialState == product[type]) {
+						int remain = workbenches[robots[i].workbenchId].restTime;
+						deal.push({ frameNumber + remain, type });
+					}
 					C[robots[i].workbenchId] = false;
+					workbenches[robots[i].workbenchId].robot_id = -1;
 					robots[i].setInstruct(Instruction::BUY, i, -1);
-					robots[i].carryType = workbenches[robots[i].workbenchId].type; //同上，不设置，会去买
+					robots[i].carryType = type; //同上，不设置，会去买
 				}
 			} 
 			set_target(i);
@@ -182,46 +199,96 @@ void Map::strategy() {
 			get_line_speed(robots[i], workbenches[robots[i].target_id]));
 		for (int j = i + 1; j < MAXROBOTS; j++)
 			if (collision_detection(robots[i],robots[j])) {
-				robots[i].setInstruct(Instruction::ROTATE, i, MAXSPIN);
-				robots[i].setInstruct(Instruction::FORWARD, i, MAXBACKWARD);
+				robots[i].setInstruct(Instruction::ROTATE, i, MAXSPIN / 2);
+				robots[j].setInstruct(Instruction::ROTATE, j, -MAXSPIN / 2);
 				break;
 			}
 	}
 }  
 
 void Map::set_target(int id) {
-	if (robots[id].carryType == 0) { //手里没货 
-		for (int i = 3; i >= 1; i--) {
-			for (auto& j : A_carrier[i]) {
-				if (A[j.id][j.type])continue;
-				float diss = 1e9;
-				SimpleWorkbench t;
-				for (auto& k : C_carrier[j.type]) {
-					if (C[k.id] || time_consume(robots[id], workbenches[k.id]) < k.remain)continue;
-					if (dis(robots[id], workbenches[k.id]) < diss) {
-						diss = dis(robots[id], workbenches[k.id]);
-						t = k;
-					} 
+	float diss;
+	if (robots[id].carryType == 0) { //手里没货
+		SimpleWorkbench t;
+		int chosen = -1;
+		for (int le = 7; le >= 1; le--) { 
+			if (le == 7 || le == 6 || le == 3)diss = 1e9; 
+			if (need[le] != 0)
+				for (auto& i : C_carrier[le]) {
+					if (!C[i.id] && time_consume(robots[id], workbenches[i.id]) >= i.remain);
+					else continue;
+					float disss = dis(robots[id], workbenches[i.id]);
+					if (disss < diss) {
+						diss = disss;
+						t = i;
+						chosen = le;
+					}
 				}
-				if (diss < 1e9) {
-					C[t.id] = true;
-					A[j.id][j.type] = true;
-					robots[id].target_id = t.id;
-					return;
-				}
+			if ((le - 1) % 3 == 0 && diss < 1e9) { //选择这个工作台
+				C[t.id] = true;
+				workbenches[t.id].robot_id = id;
+				robots[id].target_id = t.id; 
+				need[chosen]--;
+				return;
 			}
 		}
 	}	
-	else {  
-		for (auto& i : B_carrier[robots[id].carryType]) {
-			if (B[i.id][robots[id].carryType] || !A[i.id][robots[id].carryType])continue;
-			B[i.id][robots[id].carryType] = true;
-			robots[id].target_id = i.id;
+	else { 
+		if (robots[id].carryType == 7) {
+			diss = 1e9;
+			Material t;
+			for (auto& i : B_carrier[robots[id].carryType]) { 
+				float disss = dis(robots[id], workbenches[i.id]);
+				if (disss < diss) {
+					diss = disss; 
+					t = i;
+				}
+			}
+			//// 8 9 号工作台不上锁
+			//B[t.id][t.type] = true;
+			robots[id].target_id = t.id; 
+			return;
+		}
+		else if (robots[id].carryType > 3) {
+			for (auto& i : B_carrier[robots[id].carryType]) {
+				if (B[i.id][i.type] || i.type != robots[id].carryType)continue;
+				if (workbenches[i.id].type != 9) B[i.id][i.type] = true;
+				robots[id].target_id = i.id; 
+				return;
+			}
+		}
+		else {
+			diss = 1e9;
+			Material t;
+			for (int j = 3; j >= 1; j--) {
+				for (auto& i : B_carrier[j]) {
+					if (B[i.id][i.type] || i.type != robots[id].carryType)continue;
+					float disss = dis(robots[id], workbenches[i.id]);
+					if (disss < diss) {
+						diss = disss;
+						t = i;
+					}
+				}
+			}
+			if (workbenches[t.id].type != 9)B[t.id][t.type] = true;
+			robots[id].target_id = t.id; 
 			return;
 		}
 	}
 	robots[id].target_id = -1;
-} 
+}  
+
+void Map::buy_next(int id) {
+	if (robots[id].target_id == -1)return;
+	if (workbenches[robots[id].target_id].productState == 1
+		|| workbenches[robots[id].target_id].restTime != -1
+		&& time_consume(robots[id], workbenches[robots[id].target_id]) >= workbenches[robots[id].target_id].restTime
+		&& need[workbenches[robots[id].target_id].type] > 0) {
+		robots[id].ready = true; 
+		if (C[robots[id].target_id])robots[workbenches[robots[id].target_id].robot_id].target_id = -1;
+		else need[workbenches[robots[id].target_id].type]--;
+	}
+}
 
 template <typename T, typename T1>
 float dis(T& a, T1& b) {
@@ -283,7 +350,7 @@ bool robot_close_to_wall(Robot& b) {
 int time_consume(Robot& a, Workbench& b) {  
 	float t = 0;
 	bool is_w = workbench_close_to_wall(b);  
-	float S = dis(a, b);
+	float S = dis(a, b) - a.R;
 	float v = sqrtf(a.vx * a.vx + a.vy * a.vy);
 	float a_ = MAXTRACTION / a.quantity;
 	if (is_w) { // 先加速后减速，或者全程减速
@@ -292,8 +359,8 @@ int time_consume(Robot& a, Workbench& b) {
 			float A = 2 * a_ * a_;
 			float B = 4 * a_ * v;
 			float C = v * v - 2 * a_ * S - TERMINALVELOCITY;
-			t = (-B + sqrtf(B * B - 4 * A * C)) / (2 * A);
-			t += (v + t * a_ - 1) / a_;
+			t = (-B + sqrtf(B * B - 4 * A * C)) / (2 * A); //加速阶段
+			t += (v + t * a_ - TERMINALVELOCITY) / a_; //减速阶段
 		}
 		else {
 			t = (2 * v - sqrtf(4 * v * v - 8 * a_ * S)) / (2 * a_);
@@ -318,7 +385,10 @@ void shuffle(vector<T>& v) {
 }
 
 bool collision_detection(Robot& a, Robot& b) {
-	float R = a.R + b.R + 0.1; 
-	if (dis(a, b) <= R)return true;
+	float R = a.R + b.R + 0.5; 
+	if (dis(a, b) <= R) {
+		float x = a.toward - b.toward;
+		return PI * 6 / 8 <= fabs(x) && fabs(x) <= PI * 10 / 8 || PI + PI * 6 / 8 <= fabs(x) && fabs(x) <= PI + PI * 10 / 8;
+	}
 	return false;
 }

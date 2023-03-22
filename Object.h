@@ -6,6 +6,7 @@
 #include <cstring>
 #include <cstdio>
 #include <set>
+#include <queue>
 #include <unordered_map>
 
 
@@ -42,6 +43,7 @@ public:
 	int restTime;
 	int materialState;
 	int productState;
+	int robot_id; //来买产品的robot的id
 
 	void setPos(int i, int j);
 
@@ -79,8 +81,7 @@ public:
 	float R; // 半径
 	float quantity; // 质量
 	vector<Instruction> instructions;
-
-
+	 
 	void setPos(int i, int j);
 	void setInstruct(string ins, int id, float par);
 
@@ -112,17 +113,19 @@ public:
 	Workbench workbenches[MAXWORKBENCH];
 	float distance[MAXWORKBENCH][MAXWORKBENCH];  
 	unordered_map<int, vector<SimpleWorkbench>>C_carrier;
-	unordered_map<int, vector<Material>>A_carrier;
+	unordered_map<int, int>need;
 	unordered_map<int, vector<Material>>B_carrier;
-	bool C[MAXWORKBENCH];
-	bool A[MAXWORKBENCH][8];
+	bool C[MAXWORKBENCH]; 
 	bool B[MAXWORKBENCH][8]; 
+	//{帧数，工作台类型}
+	priority_queue<pair<int, int>, vector<pair<int, int>>, greater<pair<int, int>>>deal;
 
 	void init();
 	void frameInput();
 	void output();
 	void strategy();//测试函数，瞎放指令  
 	void set_target(int id);
+	void buy_next(int id);
 }; 
 
 /*
