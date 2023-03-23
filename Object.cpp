@@ -18,6 +18,8 @@ const string Instruction::BUY = "buy";
 const string Instruction::SELL = "sell";
 const string Instruction::DESTORY = "destory";
 const int product[10] = { 0,0,0,0,6,10,12,112,128,254 };
+const int buy[8] = { 0,3000,4400,5800,15400,17200,19200,76000 };
+const int sell[8] = { 0,6000,7600,9200,22500,25000,27500,105000 };
 
 void Robot::setPos(int i, int j) {
 	this->x = j * 0.5 + 0.25;
@@ -155,16 +157,11 @@ void Map::strategy() {
 			if (robots[i].workbenchId != ALONE) {
 				if (robots[i].carryType != 0) {	 
 					robot_sell(i);
-					if (robots[i].ready) { // 卖了能不能直接买？
-						robots[i].ready = false; 
-						robot_buy(i);
-					}
 				}
 				else robot_buy(i); 
 			} 
 			set_target(i);
-		} 
-		if (robots[i].carryType != 0)buy_next(i);
+		}  
 		//运动 
 		robots[i].setInstruct(Instruction::ROTATE, i, 
 			get_angular_velocity(robots[i], workbenches[robots[i].target_id]));
@@ -187,7 +184,9 @@ void Map::robot_sell(int id) {
 	//所有原料凑齐，但要分情况讨论
 	if (workbenches[wid].materialState == product[type] && type <= 7) {
 		int remain = workbenches[wid].restTime;
-		if (remain == -1)deal.push({ frameNumber, type }); //无需等待，会立刻生产
+		if (remain == -1) {
+			deal.push({ frameNumber, type }); //无需等待，会立刻生产 
+		}
 		else if (remain >= 0 && workbenches[wid].productState == 0) //生产结束后会立马继续生产
 			deal.push({ frameNumber + remain, type });
 	}
@@ -215,74 +214,62 @@ void Map::robot_buy(int id) {
 	need[type]++; //不买，得告诉其他robot有此产品的需求
 }
 
+float Map::estimate_h(Robot& a, Workbench& b, Workbench& c) {
+	float t1 = time_consume(a, b);
+	float t2 = time_consume(a, c);
+	if (t1 + t2 > MAXFRAME - frameNumber)return -1;
+	float y = (1 - sqrtf(1 - (1 - t2 / MAXFRAME) * (1 - t2 / MAXFRAME))) * 0.2 + 0.8;
+	float Gain = sell[b.type] * y - buy[b.type];
+	return Gain / (t1 + t2);
+}
+
 void Map::set_target(int id) {
 	float diss;
 	if (robots[id].carryType == 0) { //手里没货 去买
-		SimpleWorkbench t;
-		int chosen = -1;
-		for (int le = 7; le >= 1; le--) { 
-			if (le == 7 || le == 6 || le == 3)diss = 1e9; 
-			if (need[le] != 0)
-				for (auto& i : C_carrier[le]) {
-					if (!C[i.id] && time_consume(robots[id], workbenches[i.id]) >= i.remain);
-					else continue;
-					float disss = dis(robots[id], workbenches[i.id]);
-					if (disss < diss) {
-						diss = disss;
+		SimpleWorkbench t; 
+		diss = 0;
+		int chosen;
+		for (int j = 7; j >= 1; j--) {
+			if (need[j] == 0)continue;
+			for (auto& i : C_carrier[j]) {
+				if (!C[i.id] && time_consume(robots[id], workbenches[i.id]) >= i.remain);
+				else continue;
+				//能买这个产品
+				for (auto& k : B_carrier[workbenches[i.id].type]) {
+					if (B[k.id][k.type])continue;
+					//能卖
+					float h = estimate_h(robots[id], workbenches[i.id], workbenches[k.id]);
+					if (h > diss) {
+						diss = h;
 						t = i;
-						chosen = le;
+						chosen = j;
 					}
 				}
-			if ((le - 1) % 3 == 0 && diss < 1e9) { //选择这个工作台
-				if (workbenches[t.id].type != 9) C[t.id] = true;
-				workbenches[t.id].robot_id = id;
-				robots[id].target_id = t.id; 
-				need[chosen]--;
-				return;
 			}
 		}
-	}	
+		if (diss > 0) { 
+			C[t.id] = true;
+			workbenches[t.id].robot_id = id;
+			robots[id].target_id = t.id;
+			need[chosen]--;
+			return;
+		}
+	}
 	else {  // 卖东西
-		if (robots[id].carryType == 7) {
-			diss = 1e9;
-			Material t;
-			for (auto& i : B_carrier[robots[id].carryType]) { 
-				float disss = dis(robots[id], workbenches[i.id]);
-				if (disss < diss) {
-					diss = disss; 
-					t = i;
-				}
-			}
-			//// 8 9 号工作台不上锁
-			//B[t.id][t.type] = true;
-			robots[id].target_id = t.id; 
-			return;
-		}
-		else if (robots[id].carryType > 3) {
-			for (auto& i : B_carrier[robots[id].carryType]) {
-				if (B[i.id][i.type] || i.type != robots[id].carryType)continue;
-				if (workbenches[i.id].type != 9) B[i.id][i.type] = true;
-				robots[id].target_id = i.id;  
-				return;
-			}
-		}
-		else {
-			diss = 1e9;
-			Material t;
-			for (int j = 3; j >= 1; j--) {
-				for (auto& i : B_carrier[j]) {
-					if (B[i.id][i.type] || i.type != robots[id].carryType)continue;
-					float disss = dis(robots[id], workbenches[i.id]);
-					if (disss < diss) {
-						diss = disss;
-						t = i;
-					}
-				}
-			}
-			if (workbenches[t.id].type != 9)B[t.id][t.type] = true;
-			robots[id].target_id = t.id;  
-			return;
-		}
+		diss = 1e9;
+		Material t;
+		int type = robots[id].carryType;
+		for (auto& i : B_carrier[type]) { 
+			if (B[i.id][i.type])continue;
+			float disss = dis(robots[id], workbenches[i.id]);
+			if (disss < diss) {
+				diss = disss;
+				t = i;
+			} 
+		} 
+		if (workbenches[t.id].type < 8)B[t.id][t.type] = true;//8\9不上锁
+		robots[id].target_id = t.id;
+		return;
 	}
 	robots[id].target_id = -1;
 }  
@@ -405,7 +392,7 @@ int time_consume(Robot& a, Workbench& b) {
 			t = (sqrtf(4 * v * v + 8 * a_ * S) - 2 * v) / (2 * a_);
 		}
 	}
-	return t * 50;
+	return t * 50 + 0.5; //四舍五入一下
 }
 
 template <typename T>
@@ -421,4 +408,4 @@ bool collision_detection(Robot& a, Robot& b) {
 		return PI * 6 / 8 <= fabs(x) && fabs(x) <= PI * 10 / 8 || PI + PI * 6 / 8 <= fabs(x) && fabs(x) <= PI + PI * 10 / 8;
 	}
 	return false;
-}
+} 

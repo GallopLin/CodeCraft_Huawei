@@ -128,6 +128,10 @@ public:
 	void buy_next(int id);
 	void robot_buy(int id);
 	void robot_sell(int id);
+	/*
+		º€÷µπ¿À„
+	*/
+	float estimate_h(Robot& a, Workbench& b, Workbench& c);
 }; 
 
 /*
@@ -183,4 +187,4 @@ void shuffle(vector<T>& v);
 /*
 	≈ˆ◊≤ºÏ≤‚
 */ 
-bool collision_detection(Robot& a, Robot& b);
+bool collision_detection(Robot& a, Robot& b); 
