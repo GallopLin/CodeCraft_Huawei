@@ -20,6 +20,7 @@ const string Instruction::DESTORY = "destory";
 const int product[10] = { 0,0,0,0,6,10,12,112,128,254 };
 const int buy[8] = { 0,3000,4400,5800,15400,17200,19200,76000 };
 const int sell[8] = { 0,6000,7600,9200,22500,25000,27500,105000 };
+const int ane[7] = { 0,1,3,5,8,10,15 };
 
 void Robot::setPos(int i, int j) {
 	this->x = j * 0.5 + 0.25;
@@ -120,8 +121,8 @@ void Map::frameInput() {
 		//设定半径与质量
 		robots[i].R = (robots[i].carryType == EMPTY) ? RR1 : RR2;
 		robots[i].quantity = (robots[i].carryType == EMPTY) ? QUANTITY1 : QUANTITY2; 
-	} 
-	  {
+	}  
+	{
 			fout << "frame" << frameNumber << endl;
 			for (int i = 7; i >= 1; i--) {
 				fout << i << "type :";
@@ -131,8 +132,7 @@ void Map::frameInput() {
 			}  
 			for (int i = 7; i >= 1; i--)fout << need[i] << " ";
 			fout << endl;
-		}
-	
+		} 
 	string ok;
 	cin >> ok;
 }
@@ -157,11 +157,16 @@ void Map::strategy() {
 			if (robots[i].workbenchId != ALONE) {
 				if (robots[i].carryType != 0) {	 
 					robot_sell(i);
+					if (robots[i].ready) {
+						robots[i].ready = false;
+						robot_buy(i);
+					}
 				}
 				else robot_buy(i); 
 			} 
 			set_target(i);
 		}  
+		if (robots[i].carryType != 0)buy_next(i);
 		//运动 
 		robots[i].setInstruct(Instruction::ROTATE, i, 
 			get_angular_velocity(robots[i], workbenches[robots[i].target_id]));
@@ -202,13 +207,24 @@ void Map::robot_buy(int id) {
 	C[wid] = false;
 	workbenches[wid].robot_id = -1;
 	if (workbenches[wid].productState == 1) {
+		//尝试购买
+		{
+			robots[id].carryType = type; //同上，不设置，会去买
+			set_target(id);
+			B[robots[id].target_id][robots[id].carryType] = false;
+			robots[id].carryType = 0;
+			if (time_consume(robots[id], workbenches[robots[id].target_id]) + 50 + frameNumber >= MAXFRAME) {
+				//买了就是亏钱,那不能买啊 
+				return;
+			}
+		} 
 		//买完之后看看是否会继续生产
 		if (workbenches[wid].materialState == product[type] && workbenches[wid].restTime >= 0) {
 			int remain = workbenches[wid].restTime;
 			deal.push({ frameNumber + remain, type });
 		}
-		robots[id].setInstruct(Instruction::BUY, id, -1);
-		robots[id].carryType = type; //同上，不设置，会去买ty
+		robots[id].setInstruct(Instruction::BUY, id, -1); 
+		robots[id].carryType = type; //同上，不设置，会去买
 		return;
 	}  
 	need[type]++; //不买，得告诉其他robot有此产品的需求
@@ -232,7 +248,7 @@ void Map::set_target(int id) {
 		for (int j = 7; j >= 1; j--) {
 			if (need[j] == 0)continue;
 			for (auto& i : C_carrier[j]) {
-				if (!C[i.id] && time_consume(robots[id], workbenches[i.id]) >= i.remain);
+				if (!C[i.id] && time_consume(robots[id], workbenches[i.id]) >= i.remain + 50);
 				else continue;
 				//能买这个产品
 				for (auto& k : B_carrier[workbenches[i.id].type]) {
@@ -268,6 +284,7 @@ void Map::set_target(int id) {
 			} 
 		} 
 		if (workbenches[t.id].type < 8)B[t.id][t.type] = true;//8\9不上锁
+		else need[type]++;
 		robots[id].target_id = t.id;
 		return;
 	}
@@ -337,24 +354,26 @@ float get_angular_velocity(Robot& a, Workbench& b) {
 	else return S > 0 ? MAXSPIN : -MAXSPIN;
 }
 
-float get_line_speed(Robot& a, Workbench& b) { 
+float get_line_speed(Robot& a, Workbench& b) {
 	bool is_w = workbench_close_to_wall(b);
-	bool is_r = robot_close_to_wall(a);
-	float range = radian(a, b); 
+	float range = radian(a, b);
 	float S = dis(a, b);
 	float v = sqrtf(a.vx * a.vx + a.vy * a.vy);
 	float a_ = MAXTRACTION / a.quantity;
-	float low = (v * v) / (2 * a_);
-	//目的地是否靠墙，如果是减速，否则不减速
-	if (S - low <= 0.4 - 1e-8)return is_w ? TERMINALVELOCITY : MAXFORWARD;
-	else {
-		/*
-			是否直线，如果是则加速，否则机器人是否靠墙
-		*/
-		return fabs(range) <= (PI / 16) ? MAXFORWARD : ((is_r && (abs(range) >= PI / 6)) ? STARTSPEED
-			: ((abs(range) >= PI / 2) ? STARTSPEED : MAXFORWARD));
+	if (fabs(range) <= PI / 42) {	//对齐
+		float low = (v - TERMINALVELOCITY) * (v - TERMINALVELOCITY) / (2 * a_);
+		//目的地是否靠墙，如果是减速，否则不减速
+		if (S - low <= 0.4 - 1e-8)return is_w ? TERMINALVELOCITY : MAXFORWARD;
 	}
-} 
+	else {	//没对齐 
+		int sum = 0;
+		for (int j = 1; j <= 6; j++) {
+			sum += ane[j];
+			if (fabs(range) <= PI / 42 * sum)return 6 + 1 - j;
+		}
+	}
+	return MAXFORWARD;
+}
 
 bool workbench_close_to_wall(Workbench& b) {
 	return b.x <= 2.5 || b.y <= 2.5 || b.x >= 47.5 || b.y >= 47.5;
@@ -364,35 +383,79 @@ bool robot_close_to_wall(Robot& b) {
 	return b.x <= 2.5 || b.y <= 2.5 || b.x >= 47.5 || b.y >= 47.5;
 }
 
-int time_consume(Robot& a, Workbench& b) {  
-	float t = 0;
-	bool is_w = workbench_close_to_wall(b);  
-	float S = dis(a, b) - a.R;
+int time_consume(Robot& a, Workbench& b) {
+	bool is_w = workbench_close_to_wall(b);
+	float range = radian(a, b);
+	float S = dis(a, b);
 	float v = sqrtf(a.vx * a.vx + a.vy * a.vy);
 	float a_ = MAXTRACTION / a.quantity;
-	if (is_w) { // 先加速后减速，或者全程减速
-		float S0 = v * v / (2 * a_);
-		if (S0 < S) {// 先加速后减速，则最后速度应该是TERMINALVELOCITY
-			float A = 2 * a_ * a_;
-			float B = 4 * a_ * v;
-			float C = v * v - 2 * a_ * S - TERMINALVELOCITY;
-			t = (-B + sqrtf(B * B - 4 * A * C)) / (2 * A); //加速阶段
-			t += (v + t * a_ - TERMINALVELOCITY) / a_; //减速阶段
+	float t = 0;
+	float t1 = 0;
+	int sum = 0;
+	//没对齐
+	for (int j = 1; j <= 6; j++) {
+		sum += ane[j];
+		if (fabs(range) <= PI / 42 * sum) {
+			v = 7 - j;
+			float a_ = MAXTORQUE / (a.quantity * a.R * a.R);
+			float S = radian(a, b);
+			//当前速度开始减速到0，会转多少
+			float low = (a.w * a.w) / (2 * a_);
+			if (low < range) {	//先加速后减速
+				float S1 = (2 * MAXSPIN * MAXSPIN - a.w * a.w) / a_;
+				if (S1 >= S) {
+					float A = 2 * a_ * a_;
+					float B = 4 * a_ * a.w;
+					float C = a.w * a.w - 2 * a_ * S;
+					t1 += (-B + sqrt(B * B - 4 * A * C)) / (2 * A);
+					t1 += (a.w + a_ * t1) / a_;
+				}
+				else {
+					t1 += (MAXSPIN - a.w + MAXSPIN) / a_;
+					t1 += (S - (2 * MAXSPIN * MAXSPIN - a.w * a.w) / (2 * a_)) / MAXSPIN;
+				}
+			}
+			else {
+				float A = a_;
+				float B = -2 * a.w;
+				float C = 2 * S;
+				t1 += (-B - sqrt(B * B - 4 * A * C)) / (2 * A);
+			}
+			break;
 		}
-		else {
-			t = (2 * v - sqrtf(4 * v * v - 8 * a_ * S)) / (2 * a_);
+	}
+	//对齐 先加速后减速或者全程减速或者全程加速 
+	if (is_w) {
+		float S0 = (v * v - TERMINALVELOCITY * TERMINALVELOCITY) / (2 * a_); //全程减速的距离
+		if (S0 < S) { // 全程减速距离不够，所以先加速
+			float S1 = (2 * MAXFORWARD * MAXFORWARD - v * v - TERMINALVELOCITY * TERMINALVELOCITY) / (2 * a_); //加速到极点马上减速的距离
+			if (S1 >= S) { //满足上述，没有匀速
+				float A = 2 * a_ * a_;
+				float B = 4 * a_ * v;
+				float C = v * v - 2 * a_ * S - TERMINALVELOCITY;
+				t += (-B + sqrtf(B * B - 4 * A * C)) / (2 * A); //加速阶段
+				t += (v + t * a_ - TERMINALVELOCITY) / a_; //减速阶段
+			}
+			else {	//有匀速
+				t += (MAXFORWARD - v + MAXFORWARD - TERMINALVELOCITY) / a_;
+				t += (S - (2 * MAXFORWARD * MAXFORWARD - v * v - TERMINALVELOCITY * TERMINALVELOCITY) / (2 * a_)) / MAXFORWARD;
+			}
+		}
+		else {	// 全程减速
+			t += (2 * v - sqrtf(4 * v * v - 8 * a_ * S)) / (2 * a_);
 		}
 	}
 	else {	//全程加速
 		float S0 = (MAXFORWARD * MAXFORWARD - v * v) / (2 * a_);
-		if (S0 < S) {
-			t = (MAXFORWARD - v) / a_ + (S - S0) / MAXFORWARD;
+		if (S0 < S) { // 有匀速
+			t += (MAXFORWARD - v) / a_ + (S - S0) / MAXFORWARD;
 		}
 		else {
-			t = (sqrtf(4 * v * v + 8 * a_ * S) - 2 * v) / (2 * a_);
+			t += (sqrtf(4 * v * v + 8 * a_ * S) - 2 * v) / (2 * a_);
 		}
 	}
-	return t * 50 + 0.5; //四舍五入一下
+
+	return (t1 + t) * 50 + 0.5;
 }
 
 template <typename T>

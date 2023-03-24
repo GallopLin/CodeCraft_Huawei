@@ -171,12 +171,7 @@ bool workbench_close_to_wall(Workbench& b);
 bool robot_close_to_wall(Robot& b);
 /*
 	估算大概时间
-	robot去往工作台大概就3种
-	1.全程加速
-	2.先加速后减速
-	3.全程减速
-	只要考虑一下目标是不是靠墙就知道了
-	这里不包含旋转的时间，所以会比真正时间小一些，而这也是我们想得到的结果
+	与真实时间误差在50帧以内(不包括碰撞的时间)
 */
 int time_consume(Robot& a, Workbench& b);
 /*
