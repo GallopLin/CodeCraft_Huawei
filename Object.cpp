@@ -166,7 +166,7 @@ void Map::strategy() {
 			} 
 			set_target(i);
 		}  
-		if (robots[i].carryType != 0)buy_next(i);
+		//if (robots[i].carryType != 0)buy_next(i);
 		//运动 
 		robots[i].setInstruct(Instruction::ROTATE, i, 
 			get_angular_velocity(robots[i], workbenches[robots[i].target_id]));
@@ -209,14 +209,9 @@ void Map::robot_buy(int id) {
 	if (workbenches[wid].productState == 1) {
 		//尝试购买
 		{
-			robots[id].carryType = type; //同上，不设置，会去买
-			set_target(id);
-			B[robots[id].target_id][robots[id].carryType] = false;
-			robots[id].carryType = 0;
-			if (time_consume(robots[id], workbenches[robots[id].target_id]) + 50 + frameNumber >= MAXFRAME) {
-				//买了就是亏钱,那不能买啊 
-				return;
-			}
+			
+
+
 		} 
 		//买完之后看看是否会继续生产
 		if (workbenches[wid].materialState == product[type] && workbenches[wid].restTime >= 0) {
@@ -231,8 +226,14 @@ void Map::robot_buy(int id) {
 }
 
 float Map::estimate_h(Robot& a, Workbench& b, Workbench& c) {
+	Robot t = a;
+	t.x = b.x; t.y = b.y;
+	bool is_close = workbench_close_to_wall(b);
+	t.vx = is_close ? 1.0 : 6.0;
+	t.vy = 0;
+	t.toward = a.toward + radian(a, b);
 	float t1 = time_consume(a, b);
-	float t2 = time_consume(a, c);
+	float t2 = time_consume(t, c);
 	if (t1 + t2 > MAXFRAME - frameNumber)return -1;
 	float y = (1 - sqrtf(1 - (1 - t2 / MAXFRAME) * (1 - t2 / MAXFRAME))) * 0.2 + 0.8;
 	float Gain = sell[b.type] * y - buy[b.type];
