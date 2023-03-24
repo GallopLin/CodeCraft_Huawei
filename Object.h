@@ -27,6 +27,7 @@
 #define ALONE -1
 #define TERMINALVELOCITY 1.0 //终点速度
 #define STARTSPEED 2.0 //起始速度
+#define K 170 //万有引力公式的K
 
 using namespace std;
 
@@ -82,6 +83,7 @@ public:
 	float R; // 半径
 	float quantity; // 质量
 	vector<Instruction> instructions;
+	double charge; // 机器人的电荷量
 	 
 	void setPos(int i, int j);
 	void setInstruct(string ins, int id, float par);
@@ -129,6 +131,7 @@ public:
 	void buy_next(int id);
 	void robot_buy(int id);
 	void robot_sell(int id);
+	void VirtualFieldAlgorithm(int id); //虚拟势场算法
 	/*
 		价值估算
 	*/

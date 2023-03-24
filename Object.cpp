@@ -56,6 +56,7 @@ void Map::init() {
 				//设定初始目的地为空
 				robots[rNum].target_id = -1;
 				robots[rNum].ready = false;
+				robots[rNum].charge = 1;//设置机器人的电荷量
 				++rNum;
 			}
 			else if (map[i][j] >= '1' && map[i][j] <= '9') {
@@ -176,17 +177,18 @@ void Map::strategy() {
 		}  
 		//if (robots[i].carryType != 0)buy_next(i);
 		//运动 
+		VirtualFieldAlgorithm(i);
 		robots[i].setInstruct(Instruction::ROTATE, i, 
 			get_angular_velocity(robots[i], workbenches[robots[i].target_id]));
 		robots[i].setInstruct(Instruction::FORWARD, i,
 			get_line_speed(robots[i], workbenches[robots[i].target_id]));
-		for (int j = i + 1; j < MAXROBOTS; j++) {
+		/*for (int j = i + 1; j < MAXROBOTS; j++) {
 			if (collision_detection(robots[i], robots[j])) {
 				robots[i].setInstruct(Instruction::ROTATE, i, MAXSPIN / 2);
 				robots[j].setInstruct(Instruction::ROTATE, j, -MAXSPIN / 2);
 				break;
 			}
-		}
+		}*/
 	}
 }  
 
@@ -347,6 +349,25 @@ void Map::buy_next(int id) {
 			C[wid] = true;
 		}
 	}
+}
+
+void Map::VirtualFieldAlgorithm(int id) {
+	float fx = 0, fy = 0; // 计算机器人受到的力
+	for (int j = 0; j < MAXROBOTS; j++) {
+		if (j == id) continue;
+		float dx = robots[j].x - robots[id].x, dy = robots[j].y - robots[id].y;
+		float d = sqrt(dx * dx + dy * dy);
+		float angle = atan2(dy, dx);
+		float force = K * robots[id].charge * robots[j].charge / (d * d);
+		fx += force * cos(angle);
+		fy += force * sin(angle);
+	}
+	float fx2 = 0, fy2 = 0;
+	fx2 += 250 * cos(robots[id].toward) + fx;
+	fy2 += 250 * sin(robots[id].toward) + fy;
+	float angle3 = atan2(fy2, fx2);
+	robots[id].toward = angle3;
+
 }
 
 template <typename T, typename T1>
