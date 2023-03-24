@@ -217,11 +217,16 @@ void Map::robot_buy(int id) {
 	workbenches[wid].robot_id = -1;
 	if (workbenches[wid].productState == 1) {
 		//尝试购买
-		{
-			
-
-
-		} 
+		Material t(-1, -1, 1e9);
+		float diss = 1e9;
+		for (auto& i : B_carrier[robots[id].carryType]) {
+			if (B[i.id][i.type])continue;
+			if (i.num < t.num || (i.num == t.num && dis(robots[id], workbenches[i.id]) < diss)) { //优先级高一点
+				t = i;
+				diss = dis(robots[id], workbenches[i.id]);
+			}
+		}
+		if (time_consume(robots[id], workbenches[t.id]) > MAXFRAME - frameNumber)return;
 		//买完之后看看是否会继续生产
 		if (workbenches[wid].materialState == product[type] && workbenches[wid].restTime >= 0) {
 			int remain = workbenches[wid].restTime;
