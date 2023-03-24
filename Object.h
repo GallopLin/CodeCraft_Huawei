@@ -68,6 +68,7 @@ typedef struct Product {
 
 class Robot {
 public:
+	int id;
 	bool ready;
 	int target_id;
 	int workbenchId;//所处工作台 ID

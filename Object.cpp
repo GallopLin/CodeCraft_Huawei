@@ -100,7 +100,7 @@ void Map::frameInput() {
 		cin >> workbenches[i].type >> workbenches[i].x >> workbenches[i].y >> workbenches[i].restTime
 			>> workbenches[i].materialState >> workbenches[i].productState; 
 		//产物
-		if (!C[i] && workbenches[i].productState == 1 || workbenches[i].restTime >= 0) {//完成或者正在生产，并且没被锁
+		if (workbenches[i].productState == 1 || workbenches[i].restTime >= 0) {//完成或者正在生产
 			C_carrier[workbenches[i].type].emplace_back(SimpleWorkbench(i, workbenches[i].productState == 1 ? 0 : workbenches[i].restTime));
 		}
 		//原料
@@ -109,7 +109,7 @@ void Map::frameInput() {
 		for (int j = 1; j <= 7; j++)if (k >> j & 1) {
 			num++;	//同等级 需要原料少的优先 
 		}
-		num -= need[workbenches[i].type]; // 不同级，缺的多的优先
+		num -= need[workbenches[i].type]; // 不同级，缺的多的优先 
 		for (int j = 1; j <= 7; j++) {
 			if (k >> j & 1) {
 				if (frameNumber == 1)need[j]++;
@@ -126,7 +126,9 @@ void Map::frameInput() {
 		//设定半径与质量
 		robots[i].R = (robots[i].carryType == EMPTY) ? RR1 : RR2;
 		robots[i].quantity = (robots[i].carryType == EMPTY) ? QUANTITY1 : QUANTITY2; 
-	}  
+		robots[i].id = i;
+	}   
+	/* 
 		{
 			fout << "frame" << frameNumber << endl;
 			for (int i = 7; i >= 1; i--) {
@@ -138,6 +140,7 @@ void Map::frameInput() {
 			for (int i = 7; i >= 1; i--)fout << need[i] << " ";
 			fout << endl;
 		} 
+	*/
 	string ok;
 	cin >> ok;
 }
@@ -171,18 +174,19 @@ void Map::strategy() {
 			} 
 			set_target(i);
 		}  
-		if (robots[i].carryType != 0)buy_next(i);
+		//if (robots[i].carryType != 0)buy_next(i);
 		//运动 
 		robots[i].setInstruct(Instruction::ROTATE, i, 
 			get_angular_velocity(robots[i], workbenches[robots[i].target_id]));
 		robots[i].setInstruct(Instruction::FORWARD, i,
 			get_line_speed(robots[i], workbenches[robots[i].target_id]));
-		for (int j = i + 1; j < MAXROBOTS; j++)
-			if (collision_detection(robots[i],robots[j])) {
+		for (int j = i + 1; j < MAXROBOTS; j++) {
+			if (collision_detection(robots[i], robots[j])) {
 				robots[i].setInstruct(Instruction::ROTATE, i, MAXSPIN / 2);
 				robots[j].setInstruct(Instruction::ROTATE, j, -MAXSPIN / 2);
 				break;
 			}
+		}
 	}
 }  
 
@@ -318,20 +322,18 @@ void Map::buy_next(int id) {
 		&& time_consume(robots[id], workbenches[wid]) >= workbenches[wid].restTime);
 	if (has_product) {
 		if (C[wid]) { // 说明有robot预定该产品
-			//预定此产品的robot正在送产品到该工作台，那么需要判断
-			if (robots[workbenches[wid].robot_id].ready) {
-				//说明此时两个或者多个robot往这边卖东西，并争抢买该产品，那么以距离定胜负
-				if (dis(robots[id], workbenches[wid]) < dis(robots[workbenches[wid].robot_id], workbenches[wid])) {
-					//更近, 那么抢走,但是不要该对方的target_id，因为对方正在过来卖东西
-					robots[workbenches[wid].robot_id].ready = false;
-					robots[id].ready = true;
-					workbenches[wid].robot_id = id;
-				}
-				else return; //更远，那么抢不走
-			}
-			robots[workbenches[wid].robot_id].target_id = -1; //抢走它
-			robots[id].ready = true;
+			//那就比哪个近呗
+			int rid = workbenches[wid].robot_id;
+			float s1 = dis(robots[id], workbenches[wid]);
+			float s2 = dis(robots[rid], workbenches[wid]);
+			if (s2 <= s1)return; 
+			//抢走
 			workbenches[wid].robot_id = id;
+			robots[id].ready = true;
+			if (robots[rid].carryType != 0) {	//说明被抢走的robot是来卖东西顺便买东西
+				robots[rid].ready = false;
+			}
+			else robots[rid].target_id = -1; //单纯来买东西
 		}
 		else if (need[workbenches[wid].type] > 0) { //没robot预定，那么要判断此产品有没有需求 
 			robots[id].ready = true;
@@ -378,13 +380,15 @@ float get_line_speed(Robot& a, Workbench& b) {
 	float range = radian(a, b);
 	float S = dis(a, b);
 	float v = sqrtf(a.vx * a.vx + a.vy * a.vy);
-	float a_ = MAXTRACTION / a.quantity;
+	float a_ = MAXTRACTION / a.quantity; 
 	if (fabs(range) <= PI / 42) {	//对齐
 		float low = (v - TERMINALVELOCITY) * (v - TERMINALVELOCITY) / (2 * a_);
 		//目的地是否靠墙，如果是减速，否则不减速
 		if (S - low <= 0.4 - 1e-8)return is_w ? TERMINALVELOCITY : MAXFORWARD;
 	}
 	else {	//没对齐 
+		//检查robot有没有绕target一直转
+		if (S <= 2 * a.R)return 0;
 		int sum = 0;
 		for (int j = 1; j <= 6; j++) {
 			sum += ane[j];
@@ -484,7 +488,24 @@ void shuffle(vector<T>& v) {
 }
 
 bool collision_detection(Robot& a, Robot& b) {
-	float R = a.R + b.R + 0.5; 
+	//求robot间的角度，将a视作原点
+	/*
+	float vec;
+	float x = (b.x - a.x);
+	float y = (b.y - a.y);
+	if (0 == x)vec = y > 0 ? PI / 2 : -PI / 2;
+	else if (0 == y)vec = x > 0 ? 0 : PI;
+	else vec = atan((y - 0) / (x - 0));
+	if (x < 0 && y>0)vec += PI;
+	else if (x < 0 && y < 0)vec -= PI;
+	//比较这两个
+	float rangea = fabs(a.toward - vec) > PI ? 2 * PI - fabs(a.toward - vec) : fabs(a.toward - vec);
+	float rangeb = fabs(b.toward - vec) > PI ? 2 * PI - fabs(b.toward - vec) : fabs(b.toward - vec); 
+	if (rangea <= PI / 8 && rangeb >= PI * 7 / 8) {
+		return true;
+	}
+	*/
+	float R = a.R + b.R + 0.5;
 	if (dis(a, b) <= R) {
 		float x = a.toward - b.toward;
 		return PI * 6 / 8 <= fabs(x) && fabs(x) <= PI * 10 / 8 || PI + PI * 6 / 8 <= fabs(x) && fabs(x) <= PI + PI * 10 / 8;
