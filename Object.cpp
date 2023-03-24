@@ -10,7 +10,7 @@
 
 using namespace std;
 
-ofstream fout("C:\\Users\\ASUS\\Desktop\\HUAWEI\\2023\\WindowsRelease\\log.txt",ios::out);
+//ofstream fout("C:\\Users\\ASUS\\Desktop\\HUAWEI\\2023\\WindowsRelease\\log.txt",ios::out);
 //给定指令集合
 const string Instruction::FORWARD = "forward";
 const string Instruction::ROTATE = "rotate";
@@ -126,18 +126,19 @@ void Map::frameInput() {
 		//设定半径与质量
 		robots[i].R = (robots[i].carryType == EMPTY) ? RR1 : RR2;
 		robots[i].quantity = (robots[i].carryType == EMPTY) ? QUANTITY1 : QUANTITY2; 
-	}  
-		{
-			fout << "frame" << frameNumber << endl;
-			for (int i = 7; i >= 1; i--) {
-				fout << i << "type :";
-				for(auto &j: C_carrier[i])
-				fout << j.id << " ";
-				fout << endl;
-			}  
-			for (int i = 7; i >= 1; i--)fout << need[i] << " ";
-			fout << endl;
-		} 
+	} 
+	 // {
+		//	fout << "frame" << frameNumber << endl;
+		//	for (int i = 7; i >= 1; i--) {
+		//		fout << i << "type :";
+		//		for(auto &j: C_carrier[i])
+		//		fout << j.id << " ";
+		//		fout << endl;
+		//	}  
+		//	for (int i = 7; i >= 1; i--)fout << need[i] << " ";
+		//	fout << endl;
+		//}
+	
 	string ok;
 	cin >> ok;
 }
