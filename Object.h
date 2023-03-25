@@ -82,7 +82,7 @@ public:
 	float x, y;//坐标
 	float R; // 半径
 	float quantity; // 质量
-	vector<Instruction> instructions;
+	vector<Instruction> instructions; 
 	double charge; // 机器人的电荷量
 	 
 	void setPos(int i, int j);
@@ -94,8 +94,9 @@ class SimpleWorkbench {
 public:
 	int id;	//工作台id
 	int remain; //剩余生产时间 
+	int mati; //有多少原料
 	SimpleWorkbench() {};
-	SimpleWorkbench(int id, int remain) :id(id), remain(remain) {}; 
+	SimpleWorkbench(int id, int remain, int num) :id(id), remain(remain), mati(num) {};
 };
 
 class Material {
@@ -109,6 +110,8 @@ public:
 
 class Map {
 public:
+	/*1表示全图只有9没有7，2代表有7*/
+	int only_night;
 	int money, frameNumber;
 	char map[LENGTH][LENGTH];//使用二维数组记录地图信息（暂定）
 	Robot robots[MAXROBOTS];
@@ -119,7 +122,7 @@ public:
 	unordered_map<int, int>need;
 	unordered_map<int, vector<Material>>B_carrier;
 	bool C[MAXWORKBENCH]; 
-	bool B[MAXWORKBENCH][8]; 
+	bool B[MAXWORKBENCH][8];  
 	//{帧数，工作台类型}
 	priority_queue<pair<int, int>, vector<pair<int, int>>, greater<pair<int, int>>>deal;
 
@@ -135,7 +138,7 @@ public:
 	/*
 		价值估算
 	*/
-	float estimate_h(Robot& a, Workbench& b, Workbench& c);
+	float estimate_h(Robot& a, Workbench& b, Workbench& c); 
 }; 
 
 /*
