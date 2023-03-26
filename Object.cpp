@@ -83,7 +83,7 @@ void Map::init() {
 			}
 		}
 	}
-	if (sn == 3)K = 230;
+	ajustK();
 	//计算各个工作台之间的距离
 	for (int i = 0; i < wNum; ++i) {
 		for (int j = i; j < wNum; ++j) {
@@ -313,7 +313,7 @@ void Map::rob(int id) {
 				dis(robots[id], workbenches[iid]) + dis(robots[i], workbenches[tid])) {
 				robots[id].target_id = iid;
 				robots[i].target_id = tid;
-				fout << 1 << endl;
+				//fout << 1 << endl;
 				return;
 			}
 		}
@@ -322,7 +322,7 @@ void Map::rob(int id) {
 			if (time_consume(robots[id], workbenches[iid]) > t && dis(robots[id], workbenches[iid]) < dis(robots[i], workbenches[iid])) {
 				robots[id].target_id = iid;
 				robots[i].target_id = -1;
-				fout << 2 << endl;
+				//fout << 2 << endl;
 				return;
 			}
 		}
@@ -334,7 +334,7 @@ void Map::rob(int id) {
 					dis(robots[id], workbenches[iid]) + dis(robots[i], workbenches[tid])) {
 					robots[id].target_id = iid;
 					robots[i].target_id = tid;
-					fout << 3 << endl;
+					//fout << 3 << endl;
 					return;
 				}
 			}
@@ -622,6 +622,27 @@ void Map::VirtualFieldAlgorithm(int id) {
 	fy2 += 250 * sin(robots[id].toward) + fy;
 	float angle3 = atan2(fy2, fx2);
 	robots[id].toward = angle3 + (sn != 3 ? PI / 32 : 0);
+}
+
+void Map::ajustK() {
+	switch (sn)
+	{
+	case 1:
+		K = 230;
+		break;
+	case 2:
+		K = 550;
+		break;
+	case 3:
+		K = 230;
+		break;
+	case 4:
+		K = 720;
+		break;
+	default:
+		break;
+	}
+	return;
 }
 
 template <typename T, typename T1>

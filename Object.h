@@ -161,6 +161,7 @@ public:
 	vector<vector<int>> choose_buy(int id);
 
 	set<int> choose_sell(int id);
+	void ajustK();
 }; 
 
 /*
