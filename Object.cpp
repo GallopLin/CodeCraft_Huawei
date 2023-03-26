@@ -50,6 +50,7 @@ void Map::init() {
 	int wNum = 0;//工作台下标
 	only_night = 0;//判断是不是只有9
 	sn = -1;
+	p = PI / 32;
 	K = 200;
 	for (int i = 0; i < LENGTH; ++i) {
 		for (int j = 0; j < LENGTH; ++j) {
@@ -83,7 +84,7 @@ void Map::init() {
 			}
 		}
 	}
-	if (sn == 3)K = 230;
+	ajustK();
 	//计算各个工作台之间的距离
 	for (int i = 0; i < wNum; ++i) {
 		for (int j = i; j < wNum; ++j) {
@@ -618,7 +619,32 @@ void Map::VirtualFieldAlgorithm(int id) {
 	fx2 += 250 * cos(robots[id].toward) + fx;
 	fy2 += 250 * sin(robots[id].toward) + fy;
 	float angle3 = atan2(fy2, fx2);
-	robots[id].toward = angle3 + (sn != 3 ? PI / 32 : 0);
+	robots[id].toward = angle3 + p;
+}
+
+void Map::ajustK() {
+	switch (sn)
+	{
+	case 1:
+		K = 200;
+		p = PI / 32;
+		break;
+	case 2:
+		K = 200;
+		p = PI / 32;
+		break;
+	case 3:
+		K = 230;
+		p = 0;
+		break;
+	case 4:
+		K = 200;
+		p = PI / 48;
+		break;
+	default:
+		break;
+	}
+	return;
 }
 
 template <typename T, typename T1>

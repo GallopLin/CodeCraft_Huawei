@@ -113,6 +113,7 @@ public:
 	//万有引力
 	int K;
 	int sn;
+	float p;
 	/*1表示全图只有9没有7，2代表有7*/
 	int only_night;
 	int money, frameNumber;
@@ -161,6 +162,7 @@ public:
 	vector<vector<int>> choose_buy(int id);
 
 	set<int> choose_sell(int id);
+	void ajustK();
 }; 
 
 /*
