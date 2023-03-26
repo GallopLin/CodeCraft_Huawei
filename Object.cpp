@@ -313,7 +313,6 @@ void Map::rob(int id) {
 				dis(robots[id], workbenches[iid]) + dis(robots[i], workbenches[tid])) {
 				robots[id].target_id = iid;
 				robots[i].target_id = tid;
-				fout << 1 << endl;
 				return;
 			}
 		}
@@ -322,7 +321,6 @@ void Map::rob(int id) {
 			if (time_consume(robots[id], workbenches[iid]) > t && dis(robots[id], workbenches[iid]) < dis(robots[i], workbenches[iid])) {
 				robots[id].target_id = iid;
 				robots[i].target_id = -1;
-				fout << 2 << endl;
 				return;
 			}
 		}
@@ -334,7 +332,6 @@ void Map::rob(int id) {
 					dis(robots[id], workbenches[iid]) + dis(robots[i], workbenches[tid])) {
 					robots[id].target_id = iid;
 					robots[i].target_id = tid;
-					fout << 3 << endl;
 					return;
 				}
 			}
