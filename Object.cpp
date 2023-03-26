@@ -184,6 +184,7 @@ void Map::strategy() {
 			} 
 			set_target(i); 
 		}  
+		//rob(i);
 		//if (robots[i].carryType != 0)buy_next(i);
 		//else check_buy(i);
 		//运动 
@@ -291,7 +292,44 @@ float Map::estimate_h(Robot& a, Workbench& b, Workbench& c) {
 }
 
 void Map::rob(int id) {
-
+	int ctype = robots[id].carryType;
+	int tid = robots[id].target_id;
+	for (int i = 0; i < MAXROBOTS; i++) {
+		if (i == id || robots[i].target_id == -1)continue;
+		int itype = robots[id].carryType;
+		int iid = robots[id].target_id;
+		if (ctype != 0 && itype == ctype) { //两个都去卖
+			if (dis(robots[id], workbenches[tid]) + dis(robots[i], workbenches[iid]) >
+				dis(robots[id], workbenches[iid]) + dis(robots[i], workbenches[tid])) {
+				robots[id].target_id = iid;
+				robots[i].target_id = tid;
+				fout << 1 << endl;
+				return;
+			}
+		}
+		else if (ctype == 0 && itype == 0 && iid != -1 && tid == -1) {
+			int t = workbenches[iid].productState == 1 ? 0 : workbenches[iid].restTime;
+			if (time_consume(robots[id], workbenches[iid]) > t && dis(robots[id], workbenches[iid]) < dis(robots[i], workbenches[iid])) {
+				robots[id].target_id = iid;
+				robots[i].target_id = -1;
+				fout << 2 << endl;
+				return;
+			}
+		}
+		else if (ctype == 0 && itype == 0 && iid != -1 && tid != -1) {
+			int t1 = workbenches[tid].productState == 1 ? 0 : workbenches[tid].restTime;
+			int t2 = workbenches[iid].productState == 1 ? 0 : workbenches[iid].restTime;
+			if (time_consume(robots[id], workbenches[iid]) > t1 && time_consume(robots[i], workbenches[tid]) > t2) {
+				if (dis(robots[id], workbenches[tid]) + dis(robots[i], workbenches[iid]) >
+					dis(robots[id], workbenches[iid]) + dis(robots[i], workbenches[tid])) {
+					robots[id].target_id = iid;
+					robots[i].target_id = tid;
+					fout << 3 << endl;
+					return;
+				}
+			}
+		}
+	}
 }
 
 vector<vector<int>> Map::choose_buy(int id) {
@@ -338,29 +376,32 @@ vector<vector<int>> Map::choose_buy(int id) {
 	return res;
 }
 
-int Map::choose_sell(int id) { 
+set<int> Map::choose_sell(int id) { 
 	int type = robots[id].carryType;
 	if (type == 7) {  
-		return -1;
+		return { -1 };
 	}
 	else if (type >= 4) {
-		return 7;
+		return { 7 };
 	}
 	else {
 		if (type == 3) {
-			if (numofsell[5][3] < numofsell[6][3])return 5;
-			else return 6;
+			if (numofsell[5][3] < numofsell[6][3])return { 5 };
+			else if (numofsell[5][3] > numofsell[6][3])return { 6 };
+			else return { 5,6 };
 		}
 		else if (type == 2) {
-			if (numofsell[4][2] < numofsell[6][2])return 4;
-			else return 6;
+			if (numofsell[4][2] < numofsell[6][2])return { 4 };
+			else if (numofsell[4][2] > numofsell[6][2])return { 6 };
+			else return { 4,6 };
 		}
 		else {
-			if (numofsell[5][1] < numofsell[4][1])return 5;
-			else return 4;
+			if (numofsell[5][1] < numofsell[4][1])return { 5 };
+			else if (numofsell[5][1] > numofsell[4][1])return { 4 };
+			else return { 4,5 };
 		}
 	}
-	return -1;
+	return { -1 };
 }
 
 void Map::set_target(int id) { 
@@ -497,9 +538,9 @@ void Map::set_target(int id) {
 				return;
 			}
 			else {
-				int toselltype = choose_sell(id);
+				auto toselltype = choose_sell(id);
 				for (auto& i : B_carrier[type]) {
-					if (workbenches[i.id].type == toselltype && !B[i.id][i.type]) {
+					if (toselltype.count(workbenches[i.id].type) && !B[i.id][i.type]) {
 						if (i.num < t.num) {
 							t = i;
 							diss = dis(robots[id], workbenches[t.id]);
@@ -511,23 +552,7 @@ void Map::set_target(int id) {
 							}
 						}
 					}
-				}
-				if (diss == 1e9) {
-					for (auto& i : B_carrier[type]) {
-						if (!B[i.id][i.type]) {
-							if (i.num < t.num) {
-								t = i;
-								diss = dis(robots[id], workbenches[t.id]);
-							}
-							else if (i.num == t.num) {
-								if (dis(robots[id], workbenches[t.id]) > dis(robots[id], workbenches[i.id])) {
-									t = i;
-									diss = dis(robots[id], workbenches[t.id]);
-								}
-							}
-						}
-					}
-				}
+				} 
 			} 
 			if (diss < 1e9) {
 				B[t.id][t.type] = true; 
