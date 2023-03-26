@@ -111,6 +111,7 @@ public:
 
 class Map {
 public:
+	int sn;
 	/*1表示全图只有9没有7，2代表有7*/
 	int only_night;
 	int money, frameNumber;
@@ -127,9 +128,11 @@ public:
 	//{帧数，工作台类型}
 	priority_queue<pair<int, int>, vector<pair<int, int>>, greater<pair<int, int>>>deal; 
 	// 123被买的次数
-	unordered_map<int, int>numofbuy;
+	unordered_map<int, int>numofbuy; 
 	// 456工作台接受123的次数
 	unordered_map<int, unordered_map<int,int>>numofsell;
+	// 工作台的个数 
+	unordered_map<int, int>numofwork;
 
 	void init();
 	void frameInput();

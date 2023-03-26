@@ -49,9 +49,16 @@ void Map::init() {
 	int rNum = 0;//机器人下标
 	int wNum = 0;//工作台下标
 	only_night = 0;//判断是不是只有9
+	sn = -1;
 	for (int i = 0; i < LENGTH; ++i) {
 		for (int j = 0; j < LENGTH; ++j) {
 			cin >> map[i][j];
+			if (sn == -1) {
+				if (map[i][j] == '1')sn = 1;
+				else if (map[i][j] == '6')sn = 2;
+				else if (map[i][j] == '3')sn = 3;
+				else if (map[i][j] == '7')sn = 4;
+			}
 			if (map[i][j] == 'A') {
 				robots[rNum].setPos(i, j);
 				//设定初始目的地为空
@@ -65,6 +72,7 @@ void Map::init() {
 				if (map[i][j] - '0' >= 8) need[7] = 1e9; 
 				if (map[i][j] - '0' == 9 && only_night == 0)only_night = 1;
 				if (map[i][j] - '0' == 7)only_night = 2; 
+				numofwork[map[i][j] - '0']++;
 				workbenches[wNum].setPos(i, j); 
 				workbenches[wNum].type = map[i][j] - '0'; 
 				workbenches[wNum].robot_id = -1;
@@ -185,7 +193,7 @@ void Map::strategy() {
 			set_target(i); 
 		}  
 		//rob(i);
-		//if (robots[i].carryType != 0)buy_next(i);
+		if (robots[i].carryType != 0 && sn != 3)buy_next(i);
 		//else check_buy(i);
 		//运动 
 		VirtualFieldAlgorithm(i);
@@ -611,8 +619,7 @@ void Map::VirtualFieldAlgorithm(int id) {
 	fx2 += 250 * cos(robots[id].toward) + fx;
 	fy2 += 250 * sin(robots[id].toward) + fy;
 	float angle3 = atan2(fy2, fx2);
-	robots[id].toward = angle3;
-
+	robots[id].toward = angle3 + (sn != 3 ? PI / 32 : 0);
 }
 
 template <typename T, typename T1>
