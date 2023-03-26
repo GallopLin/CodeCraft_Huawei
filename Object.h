@@ -27,7 +27,7 @@
 #define ALONE -1
 #define TERMINALVELOCITY 1.0 //终点速度
 #define STARTSPEED 2.0 //起始速度
-#define K 170 //万有引力公式的K
+#define K 200 //万有引力公式的K
 
 using namespace std;
 
@@ -84,6 +84,7 @@ public:
 	float quantity; // 质量
 	vector<Instruction> instructions; 
 	double charge; // 机器人的电荷量
+	int damntimes;
 	 
 	void setPos(int i, int j);
 	void setInstruct(string ins, int id, float par);
@@ -119,12 +120,16 @@ public:
 	Workbench workbenches[MAXWORKBENCH];
 	float distance[MAXWORKBENCH][MAXWORKBENCH];  
 	unordered_map<int, vector<SimpleWorkbench>>C_carrier;
-	unordered_map<int, int>need;
+	unordered_map<int, int>need; 
 	unordered_map<int, vector<Material>>B_carrier;
 	bool C[MAXWORKBENCH]; 
 	bool B[MAXWORKBENCH][8];  
 	//{帧数，工作台类型}
-	priority_queue<pair<int, int>, vector<pair<int, int>>, greater<pair<int, int>>>deal;
+	priority_queue<pair<int, int>, vector<pair<int, int>>, greater<pair<int, int>>>deal; 
+	// 123被买的次数
+	unordered_map<int, int>numofbuy;
+	// 456工作台接受123的次数
+	unordered_map<int, unordered_map<int,int>>numofsell;
 
 	void init();
 	void frameInput();
@@ -139,6 +144,19 @@ public:
 		价值估算
 	*/
 	float estimate_h(Robot& a, Workbench& b, Workbench& c); 
+	/*
+		抢夺
+	*/
+	void rob(int id);
+
+	void check_buy(int id);
+
+	/*
+		获取买的优先等级
+	*/
+	vector<vector<int>> choose_buy(int id);
+
+	int choose_sell(int id);
 }; 
 
 /*
