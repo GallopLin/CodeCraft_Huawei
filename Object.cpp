@@ -626,12 +626,12 @@ void Map::ajustK() {
 	switch (sn)
 	{
 	case 1:
-		K = 200;
-		p = PI / 32;
+		K = 180;
+		p = PI / 16;
 		break;
 	case 2:
-		K = 200;
-		p = PI / 32;
+		K = 180;
+		p = PI / 16;
 		break;
 	case 3:
 		K = 230;
