@@ -26,8 +26,7 @@
 #define EMPTY 0 //未携带
 #define ALONE -1
 #define TERMINALVELOCITY 1.0 //终点速度
-#define STARTSPEED 2.0 //起始速度
-#define K 200 //万有引力公式的K
+#define STARTSPEED 2.0 //起始速度 
 
 using namespace std;
 
@@ -111,6 +110,8 @@ public:
 
 class Map {
 public:
+	//万有引力
+	int K;
 	int sn;
 	/*1表示全图只有9没有7，2代表有7*/
 	int only_night;

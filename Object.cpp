@@ -10,7 +10,7 @@
 
 using namespace std;
 
-ofstream fout("C:\\Users\\ASUS\\Desktop\\HUAWEI\\2023\\WindowsRelease\\log.txt",ios::out);
+//ofstream fout("C:\\Users\\ASUS\\Desktop\\HUAWEI\\2023\\WindowsRelease\\log.txt",ios::out);
 //给定指令集合
 const string Instruction::FORWARD = "forward";
 const string Instruction::ROTATE = "rotate";
@@ -50,6 +50,7 @@ void Map::init() {
 	int wNum = 0;//工作台下标
 	only_night = 0;//判断是不是只有9
 	sn = -1;
+	K = 200;
 	for (int i = 0; i < LENGTH; ++i) {
 		for (int j = 0; j < LENGTH; ++j) {
 			cin >> map[i][j];
@@ -82,6 +83,7 @@ void Map::init() {
 			}
 		}
 	}
+	if (sn == 3)K = 230;
 	//计算各个工作台之间的距离
 	for (int i = 0; i < wNum; ++i) {
 		for (int j = i; j < wNum; ++j) {
